@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<title>BMX Flow — Endless Pump Rider</title>
+<style>
+  html, body {
+    margin: 0; padding: 0; height: 100%; width: 100%;
+    background: #87b7e0; overflow: hidden;
+    font-family: -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+    -webkit-user-select: none; user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: none; overscroll-behavior: none;
+  }
+  #game { display: block; width: 100vw; height: 100vh; }
+
+  /* ---- Overlays ---- */
+  .overlay {
+    position: fixed; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center;
+    color: #fff; z-index: 10; padding: 24px; box-sizing: border-box;
+  }
+  #startScreen { background: rgba(20, 40, 65, 0.92); }
+  #gameOver { background: rgba(20, 40, 65, 0.88); display: none; }
+  h1 { font-size: 8vw; margin: 0 0 8px; letter-spacing: 2px; }
+  h2 { font-size: 6vw; margin: 0 0 4px; }
+  p  { font-size: 3.4vw; max-width: 640px; line-height: 1.5; opacity: 0.9; margin: 6px 0; }
+  .score-big { font-size: 12vw; font-weight: 700; margin: 6px 0; color: #ffd24a; }
+  .btn {
+    margin-top: 22px; padding: 18px 46px; font-size: 5vw; font-weight: 700;
+    color: #102338; background: #ffd24a; border: none; border-radius: 14px;
+    cursor: pointer; box-shadow: 0 6px 0 #c79a14; letter-spacing: 1px;
+  }
+  .btn:active { transform: translateY(3px); box-shadow: 0 3px 0 #c79a14; }
+  .hint { position: fixed; bottom: 10px; left: 0; right: 0; text-align: center;
+          color: rgba(255,255,255,0.85); font-size: 3vw; z-index: 5; pointer-events: none; }
+  @media (min-width: 700px) {
+    h1 { font-size: 52px; } h2 { font-size: 34px; } p { font-size: 18px; }
+    .score-big { font-size: 64px; } .btn { font-size: 26px; } .hint { font-size: 15px; }
+  }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="startScreen" class="overlay">
+  <h1>BMX&nbsp;FLOW</h1>
+  <p><b>Hold</b> anywhere to pump &amp; build speed.<br>
+     <b>Release</b> at the lip of a jump to launch.<br>
+     <b>Tilt</b> the phone back / forward to flip in the air.<br>
+     (No tilt sensor? Drag up / down on screen instead.)</p>
+  <button id="startBtn" class="btn">TAP TO START</button>
+  <p style="opacity:0.65">Best in landscape orientation.</p>
+</div>
+
+<div id="gameOver" class="overlay">
+  <h2>CRASH!</h2>
+  <div class="score-big" id="finalScore">0</div>
+  <p id="finalBreakdown">Distance 0 m &middot; Tricks 0</p>
+  <button id="restartBtn" class="btn">RESTART</button>
+</div>
+
+<div class="hint" id="hint"></div>
+
+<script>
+/* ============================================================================
+ *  CONFIG  —  ALL feel constants live here. Tune freely; nothing below is
+ *  hard-coded for these values. Units: pixels, seconds, degrees.
+ * ==========================================================================*/
+const CONFIG = {
+  // --- Gravity & forward motion -------------------------------------------
+  gravity:            1500,   // downward accel in the air (px/s^2)
+  baseSpeed:          330,    // cruising forward speed on the ground (px/s)
+  speedReturn:        0.55,   // how fast ground speed drifts back to baseSpeed (1/s)
+  airSpeedReturn:     0.05,   // same, but while airborne (keep small)
+  slopeGravityScale:  1.0,    // how strongly slopes speed you up / slow you down
+
+  // --- Pumping (hold on the ground) ---------------------------------------
+  pumpAccel:          650,    // forward accel while holding on the ground (px/s^2)
+  compressionScale:   650,    // multiplies terrain compression -> extra pump
+  maxCompressionBonus:2.2,    // cap on the compression pump multiplier
+  pumpChargeRate:     320,    // how fast launch-charge builds while pumping
+  pumpChargeDecay:    220,    // how fast charge bleeds off when not holding
+  maxPumpCharge:      260,    // cap on stored launch charge
+
+  // --- Launch (release near a lip) ----------------------------------------
+  minLaunchSlope:     0.06,   // minimum upslope (de/dx) needed to pop off
+  jumpForceMultiplier:1.35,   // converts speed*slope into upward launch velocity
+  pumpLaunchMultiplier:1.6,   // converts stored pump charge into launch velocity
+
+  // --- Air rotation / tricks ----------------------------------------------
+  airRotationSpeed:   430,    // max rotation speed at full tilt (deg/s)
+  tiltRange:          35,     // tilt (deg from neutral) that counts as "full"
+  tiltInvert:         false,  // flip this if back/forward feel reversed
+  dragRotateFactor:   0.7,    // desktop fallback: deg of spin per px dragged
+
+  // --- Landing -------------------------------------------------------------
+  landingTolerance:   25,     // |bike angle - slope| within this = clean (deg)
+  landingSpeedKeep:   0.92,   // fraction of speed kept on a clean landing
+  pointsPerFlip:      100,    // score per completed 360 rotation
+
+  // --- Terrain (procedural, infinite) -------------------------------------
+  terrainAmplitude:   72,     // hump height (px)
+  terrainWavelength:  240,    // px per noise unit -> controls roller spacing
+  terrainOctaves:     3,      // layers of detail (more = bumpier)
+  terrainSeed:        7,      // change for a different course
+
+  // --- Bike / camera / display --------------------------------------------
+  wheelRadius:        13,
+  wheelBase:          46,
+  riderScreenXFrac:   0.30,   // rider's horizontal position (fraction of width)
+  baseLineFrac:       0.60,   // screen y for elevation 0 (fraction of height)
+  pxPerMeter:         26,     // world px per displayed metre
+
+  // --- Engine --------------------------------------------------------------
+  maxDt:              1/30,   // clamp frame delta so lag can't teleport you
+
+  // --- Colours -------------------------------------------------------------
+  colSky:    "#87b7e0",
+  colSkyTop: "#cfe6f7",
+  colDirt:   "#9c6b3f",
+  colDirtTop:"#7c4f2a",
+  colGrass:  "#6fae3e",
+  colBike:   "#15324a",
+  colRider:  "#e0452b",
+  colWheel:  "#10202e",
+};
+
+/* ============================================================================
+ *  SETUP  —  canvas, resize, derived layout values
+ * ==========================================================================*/
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+let W = 0, H = 0, baseLine = 0, riderScreenX = 0, dpr = 1;
+
+function resize() {
+  dpr = Math.min(window.devicePixelRatio || 1, 2);
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width = Math.floor(W * dpr);
+  canvas.height = Math.floor(H * dpr);
+  canvas.style.width = W + "px";
+  canvas.style.height = H + "px";
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  baseLine = H * CONFIG.baseLineFrac;
+  riderScreenX = W * CONFIG.riderScreenXFrac;
+}
+window.addEventListener("resize", resize);
+resize();
+
+/* ============================================================================
+ *  TERRAIN  —  smooth, continuous, procedurally infinite.
+ *  Pure functions of world-x, so there is nothing to store or discard:
+ *  old terrain simply stops being sampled once the camera moves past it.
+ *  (Kept isolated so alternate level types can swap these out later.)
+ * ==========================================================================*/
+function hash(n) {
+  const s = Math.sin(n * 12.9898 + CONFIG.terrainSeed * 78.233) * 43758.5453;
+  return s - Math.floor(s);                 // 0..1
+}
+function valueNoise(x) {
+  const i = Math.floor(x), f = x - i;
+  const u = f * f * (3 - 2 * f);            // smoothstep
+  return hash(i) * (1 - u) + hash(i + 1) * u;
+}
+function fbm(x) {
+  let amp = 1, freq = 1, sum = 0, norm = 0;
+  for (let o = 0; o < CONFIG.terrainOctaves; o++) {
+    sum += amp * valueNoise(x * freq);
+    norm += amp; amp *= 0.5; freq *= 2;
+  }
+  return sum / norm;                        // 0..1
+}
+// Elevation in px, positive = up.
+function terrainElevationAt(worldX) {
+  return (fbm(worldX / CONFIG.terrainWavelength) - 0.5) * 2 * CONFIG.terrainAmplitude;
+}
+// First derivative de/dx (slope, up-positive).
+function terrainSlopeAt(worldX) {
+  const d = 2;
+  return (terrainElevationAt(worldX + d) - terrainElevationAt(worldX - d)) / (2 * d);
+}
+// Second derivative; >0 means concave-up = a compression (dip/transition).
+function terrainCurvatureAt(worldX) {
+  const d = 4;
+  return (terrainElevationAt(worldX + d) - 2 * terrainElevationAt(worldX) +
+          terrainElevationAt(worldX - d)) / (d * d);
+}
+
+/* ============================================================================
+ *  GAME STATE
+ * ==========================================================================*/
+let state = "start";          // "start" | "play" | "over"
+let bike, score, trickPoints, distanceM, flipFlash;
+
+function resetGame() {
+  bike = {
+    x: 0,                     // world x
+    ry: 0,                    // elevation (up-positive); set below
+    vx: CONFIG.baseSpeed,     // forward speed
+    vyUp: 0,                  // vertical velocity (up-positive)
+    angle: 0,                 // orientation in degrees (0 = level, +up at front)
+    onGround: true,
+    pumpCharge: 0,
+    takeoffAngle: 0,
+    totalRotation: 0,         // deg accumulated since last takeoff
+  };
+  bike.ry = terrainElevationAt(bike.x);
+  bike.angle = slopeAngleDeg(bike.x);
+  score = 0; trickPoints = 0; distanceM = 0;
+  flipFlash = { flips: 0, t: 0 };
+  input.holding = false; input.pointerDown = false; input.launchRequested = false;
+}
+
+function slopeAngleDeg(worldX) {
+  return Math.atan(terrainSlopeAt(worldX)) * 180 / Math.PI;
+}
+// Smallest signed difference a-b folded into [-180,180].
+function angleDelta(a, b) {
+  return ((a - b + 180) % 360 + 360) % 360 - 180;
+}
+const clamp = (v, lo, hi) => v < lo ? lo : v > hi ? hi : v;
+
+/* ============================================================================
+ *  INPUT  —  one button (touch/hold) + tilt, with a desktop drag fallback.
+ *  (Isolated so multiplayer / alternate control schemes can hook in later.)
+ * ==========================================================================*/
+const input = { holding: false, pointerDown: false, launchRequested: false, tilt: 0 };
+let orientationActive = false;
+let neutralBeta = null;
+let lastPointerY = 0;
+
+function pointerY(e) {
+  if (e.touches && e.touches.length) return e.touches[0].clientY;
+  if (e.changedTouches && e.changedTouches.length) return e.changedTouches[0].clientY;
+  return e.clientY;
+}
+
+function onPointerDown(e) {
+  if (state !== "play") return;
+  e.preventDefault();
+  input.pointerDown = true;
+  input.holding = true;             // holding pumps only while on the ground (see update)
+  lastPointerY = pointerY(e);
+}
+function onPointerMove(e) {
+  if (state !== "play" || !input.pointerDown) return;
+  e.preventDefault();
+  const y = pointerY(e);
+  // Desktop / no-sensor fallback: drag up = backflip, drag down = frontflip.
+  if (!orientationActive && !bike.onGround) {
+    const dy = lastPointerY - y;    // up is positive
+    const da = dy * CONFIG.dragRotateFactor;
+    bike.angle += da;
+    bike.totalRotation += da;
+  }
+  lastPointerY = y;
+}
+function onPointerUp(e) {
+  if (state !== "play") return;
+  e.preventDefault();
+  if (input.holding && bike.onGround) input.launchRequested = true;
+  input.holding = false;
+  input.pointerDown = false;
+}
+
+canvas.addEventListener("touchstart", onPointerDown, { passive: false });
+canvas.addEventListener("touchmove",  onPointerMove, { passive: false });
+canvas.addEventListener("touchend",   onPointerUp,   { passive: false });
+canvas.addEventListener("touchcancel",onPointerUp,   { passive: false });
+canvas.addEventListener("mousedown",  onPointerDown);
+canvas.addEventListener("mousemove",  onPointerMove);
+window.addEventListener("mouseup",    onPointerUp);
+
+// Tilt (DeviceOrientation beta axis). neutralBeta calibrates to however the
+// phone is held at the first reading.
+function onDeviceOrientation(e) {
+  if (e.beta == null) return;
+  orientationActive = true;
+  if (neutralBeta == null) neutralBeta = e.beta;
+  let d = e.beta - neutralBeta;
+  input.tilt = clamp(d / CONFIG.tiltRange, -1, 1) * (CONFIG.tiltInvert ? -1 : 1);
+}
+
+/* ============================================================================
+ *  UPDATE / PHYSICS
+ * ==========================================================================*/
+function update(dt) {
+  if (state !== "play") return;
+
+  if (bike.onGround) updateGround(dt);
+  else               updateAir(dt);
+
+  // Scoring / HUD values.
+  distanceM = Math.max(0, Math.floor(bike.x / CONFIG.pxPerMeter));
+  score = distanceM + trickPoints;
+  if (flipFlash.t > 0) flipFlash.t -= dt;
+}
+
+function updateGround(dt) {
+  const slope = terrainSlopeAt(bike.x);
+  bike.angle = Math.atan(slope) * 180 / Math.PI;   // glued to the trail
+
+  // Pump: holding accelerates you; the gain is bigger inside a compression.
+  if (input.holding) {
+    const comp = Math.max(0, terrainCurvatureAt(bike.x)) * CONFIG.compressionScale;
+    const pumpFactor = 1 + Math.min(comp, CONFIG.maxCompressionBonus);
+    bike.vx += CONFIG.pumpAccel * pumpFactor * dt;
+    bike.pumpCharge = Math.min(CONFIG.maxPumpCharge,
+                               bike.pumpCharge + CONFIG.pumpChargeRate * pumpFactor * dt);
+  } else {
+    bike.pumpCharge = Math.max(0, bike.pumpCharge - CONFIG.pumpChargeDecay * dt);
+  }
+
+  // Slopes bleed/feed speed (sin of slope angle).
+  const sinSlope = slope / Math.sqrt(1 + slope * slope);
+  bike.vx += -sinSlope * CONFIG.gravity * CONFIG.slopeGravityScale * dt;
+
+  // Gentle drift back toward cruising speed.
+  bike.vx += (CONFIG.baseSpeed - bike.vx) * CONFIG.speedReturn * dt;
+  if (bike.vx < CONFIG.baseSpeed * 0.5) bike.vx = CONFIG.baseSpeed * 0.5;
+
+  bike.x += bike.vx * dt;
+  bike.ry = terrainElevationAt(bike.x);            // stay on the trail
+
+  // Launch: released on an upslope -> convert speed + charge into a pop.
+  if (input.launchRequested) {
+    input.launchRequested = false;
+    const s2 = terrainSlopeAt(bike.x);
+    if (s2 > CONFIG.minLaunchSlope) {
+      const sinUp = s2 / Math.sqrt(1 + s2 * s2);   // steeper near the lip = bigger
+      bike.vyUp = bike.vx * sinUp * CONFIG.jumpForceMultiplier
+                + bike.pumpCharge * CONFIG.pumpLaunchMultiplier;
+      bike.onGround = false;
+      bike.takeoffAngle = bike.angle;
+      bike.totalRotation = 0;
+      bike.pumpCharge = 0;
+    }
+  }
+}
+
+function updateAir(dt) {
+  bike.vyUp -= CONFIG.gravity * dt;
+  bike.ry += bike.vyUp * dt;
+  bike.vx += (CONFIG.baseSpeed - bike.vx) * CONFIG.airSpeedReturn * dt;
+  bike.x += bike.vx * dt;
+
+  // Rotation from tilt (drag fallback is applied directly in onPointerMove).
+  if (orientationActive) {
+    const da = CONFIG.airRotationSpeed * input.tilt * dt;
+    bike.angle += da;
+    bike.totalRotation += da;
+  }
+
+  // Landing: only when descending through the trail surface.
+  const groundE = terrainElevationAt(bike.x);
+  if (bike.ry <= groundE && bike.vyUp <= 0) {
+    const slopeDeg = slopeAngleDeg(bike.x);
+    const diff = angleDelta(bike.angle, slopeDeg);
+    if (Math.abs(diff) <= CONFIG.landingTolerance) {
+      // Clean: keep momentum, award completed flips.
+      const flips = Math.floor(Math.abs(bike.totalRotation) / 360);
+      if (flips > 0) {
+        trickPoints += flips * CONFIG.pointsPerFlip;
+        flipFlash = { flips: flips, t: 1.1 };
+      }
+      bike.onGround = true;
+      bike.ry = groundE;
+      bike.vyUp = 0;
+      bike.angle = slopeDeg;
+      bike.totalRotation = 0;
+      bike.vx *= CONFIG.landingSpeedKeep;
+    } else {
+      crash();
+    }
+  }
+}
+
+function crash() {
+  state = "over";
+  document.getElementById("finalScore").textContent = score;
+  document.getElementById("finalBreakdown").textContent =
+    "Distance " + distanceM + " m · Tricks " + trickPoints;
+  document.getElementById("gameOver").style.display = "flex";
+}
+
+/* ============================================================================
+ *  RENDER
+ * ==========================================================================*/
+function worldToScreenX(worldX, cameraX) { return worldX - cameraX; }
+
+function render() {
+  const cameraX = bike.x - riderScreenX;
+
+  drawSky();
+  drawTerrain(cameraX);
+  drawBike(cameraX);
+  drawHUD();
+}
+
+function drawSky() {
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, CONFIG.colSkyTop);
+  g.addColorStop(1, CONFIG.colSky);
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+}
+
+function drawTerrain(cameraX) {
+  const step = 6;
+  ctx.beginPath();
+  ctx.moveTo(0, H);
+  let firstY = 0;
+  for (let sx = 0; sx <= W + step; sx += step) {
+    const e = terrainElevationAt(sx + cameraX);
+    const sy = baseLine - e;
+    if (sx === 0) firstY = sy;
+    ctx.lineTo(sx, sy);
+  }
+  ctx.lineTo(W, H);
+  ctx.closePath();
+  ctx.fillStyle = CONFIG.colDirt;
+  ctx.fill();
+
+  // Grass / top crust line for readability.
+  ctx.beginPath();
+  for (let sx = 0; sx <= W + step; sx += step) {
+    const e = terrainElevationAt(sx + cameraX);
+    const sy = baseLine - e;
+    if (sx === 0) ctx.moveTo(sx, sy); else ctx.lineTo(sx, sy);
+  }
+  ctx.lineWidth = 6;
+  ctx.strokeStyle = CONFIG.colGrass;
+  ctx.stroke();
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = CONFIG.colDirtTop;
+  ctx.stroke();
+}
+
+function drawBike(cameraX) {
+  const sx = worldToScreenX(bike.x, cameraX);
+  const sy = baseLine - bike.ry;
+  const r = CONFIG.wheelRadius;
+  const hw = CONFIG.wheelBase / 2;
+
+  ctx.save();
+  ctx.translate(sx, sy);
+  // Elevation-up angle: +angle means nose-up, which is CCW on screen (y-down).
+  ctx.rotate(-bike.angle * Math.PI / 180);
+
+  // Wheels (contact point sits at local origin; centres lifted by r).
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = CONFIG.colWheel;
+  ctx.fillStyle = "rgba(0,0,0,0.05)";
+  for (const wx of [-hw, hw]) {
+    ctx.beginPath();
+    ctx.arc(wx, -r, r, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  // Frame.
+  ctx.strokeStyle = CONFIG.colBike;
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(-hw, -r);                  // rear hub
+  ctx.lineTo(0, -r - 14);              // top tube / seat area
+  ctx.lineTo(hw, -r);                  // front hub
+  ctx.moveTo(0, -r - 14);
+  ctx.lineTo(hw - 4, -r - 20);         // head tube up to bars
+  ctx.stroke();
+
+  // Handlebars + seat dots.
+  ctx.fillStyle = CONFIG.colBike;
+  ctx.beginPath(); ctx.arc(hw - 4, -r - 20, 3, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(-2, -r - 16, 3, 0, Math.PI * 2); ctx.fill();
+
+  // Rider (simple body line + head).
+  ctx.strokeStyle = CONFIG.colRider;
+  ctx.lineWidth = 5;
+  ctx.beginPath();
+  ctx.moveTo(-4, -r - 14);             // hips
+  ctx.lineTo(2, -r - 30);             // shoulders
+  ctx.lineTo(hw - 4, -r - 20);         // arms to bars
+  ctx.stroke();
+  ctx.fillStyle = CONFIG.colRider;
+  ctx.beginPath(); ctx.arc(2, -r - 36, 6, 0, Math.PI * 2); ctx.fill();
+
+  ctx.restore();
+}
+
+function drawHUD() {
+  ctx.fillStyle = "rgba(16,35,56,0.85)";
+  ctx.font = "bold 22px -apple-system, system-ui, sans-serif";
+  ctx.textAlign = "left";
+  ctx.fillText("DIST  " + distanceM + " m", 16, 30);
+  ctx.fillText("SCORE " + score, 16, 58);
+
+  // Pump charge meter (left edge), gives feedback while holding.
+  const meterH = 90, meterW = 8, mx = 16, my = 78;
+  ctx.fillStyle = "rgba(255,255,255,0.35)";
+  ctx.fillRect(mx, my, meterW, meterH);
+  const frac = bike.pumpCharge / CONFIG.maxPumpCharge;
+  ctx.fillStyle = "#ffd24a";
+  ctx.fillRect(mx, my + meterH * (1 - frac), meterW, meterH * frac);
+
+  // Airborne rotation readout.
+  if (!bike.onGround) {
+    ctx.textAlign = "center";
+    ctx.fillStyle = "rgba(16,35,56,0.9)";
+    ctx.font = "bold 30px -apple-system, system-ui, sans-serif";
+    ctx.fillText(Math.round(bike.totalRotation) + "°", W / 2, 44);
+  }
+
+  // Flip-landed flash.
+  if (flipFlash.t > 0) {
+    ctx.textAlign = "center";
+    ctx.globalAlpha = clamp(flipFlash.t, 0, 1);
+    ctx.fillStyle = "#ffd24a";
+    ctx.strokeStyle = "rgba(16,35,56,0.9)";
+    ctx.lineWidth = 4;
+    ctx.font = "bold 40px -apple-system, system-ui, sans-serif";
+    const label = flipFlash.flips === 1 ? "FLIP! +" + CONFIG.pointsPerFlip
+                                        : flipFlash.flips + "x FLIP! +" + (flipFlash.flips * CONFIG.pointsPerFlip);
+    ctx.strokeText(label, W / 2, H * 0.3);
+    ctx.fillText(label, W / 2, H * 0.3);
+    ctx.globalAlpha = 1;
+  }
+}
+
+/* ============================================================================
+ *  MAIN LOOP
+ * ==========================================================================*/
+let lastT = 0;
+function frame(now) {
+  if (!lastT) lastT = now;
+  let dt = (now - lastT) / 1000;
+  lastT = now;
+  if (dt > CONFIG.maxDt) dt = CONFIG.maxDt;   // clamp against lag spikes
+
+  update(dt);
+  if (state !== "start") render();            // start screen draws nothing yet
+
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+/* ============================================================================
+ *  START / PERMISSION / RESTART
+ * ==========================================================================*/
+const startScreen = document.getElementById("startScreen");
+const gameOver = document.getElementById("gameOver");
+const hintEl = document.getElementById("hint");
+
+function beginPlay() {
+  resetGame();
+  state = "play";
+  startScreen.style.display = "none";
+  gameOver.style.display = "none";
+  hintEl.textContent = orientationActive
+    ? "Hold to pump · release at the lip · tilt to flip"
+    : "Hold to pump · release at the lip · drag up/down to flip";
+}
+
+async function requestMotionThenStart() {
+  // iOS 13+ requires an explicit permission request from a user gesture.
+  try {
+    if (typeof DeviceOrientationEvent !== "undefined" &&
+        typeof DeviceOrientationEvent.requestPermission === "function") {
+      const res = await DeviceOrientationEvent.requestPermission();
+      if (res === "granted") {
+        window.addEventListener("deviceorientation", onDeviceOrientation);
+      }
+    } else if (typeof DeviceOrientationEvent !== "undefined") {
+      // Non-iOS: just listen. orientationActive flips true on first real reading.
+      window.addEventListener("deviceorientation", onDeviceOrientation);
+    }
+  } catch (err) {
+    // Permission denied or unsupported -> drag fallback stays available.
+  }
+  beginPlay();
+}
+
+document.getElementById("startBtn").addEventListener("click", requestMotionThenStart);
+document.getElementById("restartBtn").addEventListener("click", beginPlay);
+</script>
+</body>
+</html>
