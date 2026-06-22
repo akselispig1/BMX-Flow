@@ -8,68 +8,80 @@
 <title>BMX Flow</title>
 <style>
   :root { --gold:#ffd24a; --ink:#11243a; }
-  html, body {
-    margin:0; padding:0; height:100%; width:100%;
-    background:#0c1622; overflow:hidden;
+  html, body { margin:0; padding:0; height:100%; width:100%; overflow:hidden;
     font-family:-apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
     -webkit-user-select:none; user-select:none; -webkit-tap-highlight-color:transparent;
     touch-action:none; overscroll-behavior:none;
-  }
-  #game { display:block; width:100vw; height:100vh; }
+    background:linear-gradient(#2c6aac 0%, #5e9ed6 40%, #a6d3ef 78%, #e2f2fb 100%); }
+  #c { position:fixed; inset:0; z-index:0; display:block; }
 
-  .overlay {
-    position:fixed; inset:0; display:flex; flex-direction:column;
-    align-items:center; justify-content:center; text-align:center;
-    color:#fff; z-index:10; padding:24px 26px; box-sizing:border-box;
-    background:radial-gradient(120% 120% at 50% 0%, rgba(28,58,92,.82), rgba(8,16,26,.94));
-    -webkit-backdrop-filter:blur(3px); backdrop-filter:blur(3px);
-  }
-  #gameOver { display:none; }
-  .logo { font-weight:900; letter-spacing:3px; line-height:.92; margin-bottom:6px;
-           font-size:14vw; text-shadow:0 4px 0 rgba(0,0,0,.35); }
+  #hud { position:fixed; inset:0; z-index:3; pointer-events:none; color:#fff; }
+  .panel { position:absolute; top:12px; left:12px; background:rgba(17,36,58,.5);
+           border-radius:13px; padding:8px 14px; }
+  #score { font-size:26px; font-weight:800; line-height:1; }
+  #sub { font-size:11px; opacity:.8; letter-spacing:1.5px; margin-top:3px; }
+  #rot { position:absolute; top:34px; left:50%; transform:translateX(-50%);
+         font-size:30px; font-weight:800; text-shadow:0 2px 6px rgba(0,0,0,.4); display:none; }
+  #combo { position:absolute; bottom:18px; right:16px; font-size:22px; font-weight:800;
+           color:var(--gold); text-shadow:0 2px 6px rgba(0,0,0,.4); display:none; }
+  #pumpWrap { position:absolute; bottom:18px; left:16px; width:150px; }
+  #pumpLbl { font-size:11px; font-weight:700; letter-spacing:1.5px; opacity:.85; margin-bottom:4px; }
+  #pumpBar { width:100%; height:12px; border-radius:6px; background:rgba(255,255,255,.2); overflow:hidden; }
+  #pumpFill { height:100%; width:0%; background:var(--gold); border-radius:6px; }
+  #banner { position:absolute; top:24%; left:50%; transform:translateX(-50%);
+            font-size:38px; font-weight:900; color:var(--gold); white-space:nowrap;
+            text-shadow:0 3px 0 rgba(17,36,58,.8); opacity:0; transition:opacity .15s; }
+
+  .overlay { position:fixed; inset:0; z-index:10; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; text-align:center; color:#fff; padding:24px;
+    box-sizing:border-box; background:radial-gradient(120% 120% at 50% 0%, rgba(28,58,92,.82), rgba(8,16,26,.94));
+    -webkit-backdrop-filter:blur(3px); backdrop-filter:blur(3px); }
+  #gameOver, #err { display:none; }
+  .logo { font-weight:900; letter-spacing:3px; font-size:14vw; text-shadow:0 4px 0 rgba(0,0,0,.35); margin-bottom:6px; }
   .logo span { color:var(--gold); }
-  h2 { font-size:7vw; margin:0 0 2px; letter-spacing:2px; }
+  h2 { font-size:7vw; margin:0 0 4px; letter-spacing:2px; }
   p  { font-size:3.6vw; max-width:560px; line-height:1.55; opacity:.92; margin:5px 0; }
-  .row { display:flex; gap:26px; margin:10px 0 4px; }
-  .stat { text-align:center; }
+  .row { display:flex; gap:26px; margin:8px 0; }
   .stat .n { font-size:9vw; font-weight:800; color:var(--gold); line-height:1; }
   .stat .l { font-size:3vw; opacity:.75; letter-spacing:2px; }
-  .btn {
-    margin-top:20px; padding:17px 50px; font-size:5.4vw; font-weight:800;
-    color:var(--ink); background:var(--gold); border:none; border-radius:16px;
-    cursor:pointer; box-shadow:0 6px 0 #c79a14; letter-spacing:1px;
-  }
-  .btn:active { transform:translateY(3px); box-shadow:0 3px 0 #c79a14; }
-  .keys { display:flex; gap:18px; flex-wrap:wrap; justify-content:center; margin-top:6px; }
+  .keys { display:flex; gap:16px; flex-wrap:wrap; justify-content:center; margin-top:4px; }
   .key { background:rgba(255,255,255,.10); border:1px solid rgba(255,255,255,.18);
-         border-radius:12px; padding:10px 14px; font-size:3.2vw; min-width:84px; }
-  .key b { display:block; color:var(--gold); font-size:3.6vw; margin-bottom:3px; letter-spacing:1px; }
-  #muteBtn {
-    position:fixed; top:10px; right:10px; z-index:9; width:42px; height:42px;
-    border:none; border-radius:11px; background:rgba(17,36,58,.55); color:#fff;
-    font-size:20px; cursor:pointer; display:none;
-  }
+         border-radius:12px; padding:9px 13px; font-size:3.1vw; min-width:80px; }
+  .key b { display:block; color:var(--gold); font-size:3.5vw; margin-bottom:3px; letter-spacing:1px; }
+  .btn { margin-top:18px; padding:17px 50px; font-size:5.4vw; font-weight:800; color:var(--ink);
+    background:var(--gold); border:none; border-radius:16px; box-shadow:0 6px 0 #c79a14; letter-spacing:1px; }
+  .btn:active { transform:translateY(3px); box-shadow:0 3px 0 #c79a14; }
+  #muteBtn { position:fixed; top:10px; right:10px; z-index:9; width:42px; height:42px; border:none;
+    border-radius:11px; background:rgba(17,36,58,.55); color:#fff; font-size:20px; display:none; }
   @media (min-width:760px){
     .logo{font-size:90px} h2{font-size:46px} p{font-size:18px}
     .stat .n{font-size:54px} .stat .l{font-size:13px}
     .btn{font-size:26px} .key{font-size:15px} .key b{font-size:16px}
+    #banner{font-size:52px}
   }
 </style>
 </head>
 <body>
-<canvas id="game"></canvas>
-<button id="muteBtn" aria-label="Toggle sound">🔊</button>
+<canvas id="c"></canvas>
+
+<div id="hud">
+  <div class="panel"><div id="score">0</div><div id="sub">SCORE · 0 m · BEST 0</div></div>
+  <div id="rot">0°</div>
+  <div id="combo"></div>
+  <div id="pumpWrap"><div id="pumpLbl">PUMP</div><div id="pumpBar"><div id="pumpFill"></div></div></div>
+  <div id="banner"></div>
+</div>
 
 <div id="startScreen" class="overlay">
   <div class="logo">BMX<span>FLOW</span></div>
-  <p>Auto-ride the endless dirt trail. Pump the transitions for speed, boost off the lips, flip in the air, stomp the landing.</p>
+  <p>Ride the endless dirt trail. Pump the transitions for speed, boost off the lips, flip in the air, stomp the landing.</p>
   <div class="keys">
     <div class="key"><b>HOLD</b>pump / charge</div>
     <div class="key"><b>RELEASE</b>boost off lip</div>
     <div class="key"><b>TILT</b>flip in air</div>
   </div>
   <button id="startBtn" class="btn">TAP TO START</button>
-  <p style="opacity:.6">No motion sensor? Drag up/down to flip. Best in landscape.</p>
+  <p style="opacity:.6">No motion sensor? Drag up/down to flip. Landscape recommended.</p>
 </div>
 
 <div id="gameOver" class="overlay">
@@ -82,445 +94,235 @@
   <button id="restartBtn" class="btn">RIDE AGAIN</button>
 </div>
 
+<div id="err" class="overlay">
+  <h2>Couldn't load 3D</h2>
+  <p id="errMsg">The 3D engine failed to load. This needs an internet connection the first time (it pulls Three.js from a CDN).</p>
+</div>
+
 <script>
-"use strict";
 /* ============================================================================
- *  CONFIG — ALL feel constants live here. Tune freely. Units: px, seconds, deg.
+ *  CONFIG — ALL feel constants. World units ≈ metres; angles in degrees.
  * ==========================================================================*/
 const CONFIG = {
-  // --- Gravity & forward motion -------------------------------------------
-  gravity:             1650,   // downward accel while airborne (px/s^2)
-  baseSpeed:           360,    // cruising forward speed (px/s)
-  maxSpeed:            980,    // hard cap on forward speed
-  speedReturn:         0.5,    // drift back toward baseSpeed on ground (1/s)
-  airDrag:             0.04,   // mild speed normalisation in the air (1/s)
-  slopeGravityScale:   1.15,   // how much slopes speed you up / slow you down
+  // --- Gravity & forward motion ---
+  gravity:            30,    // downward accel while airborne (u/s^2)
+  baseSpeed:          15,    // cruising forward speed (u/s)
+  maxSpeed:           42,    // hard speed cap
+  speedReturn:        0.5,   // drift back to baseSpeed on ground (1/s)
+  airDrag:            0.05,  // mild speed normalisation in air (1/s)
+  slopeGravityScale:  1.1,   // how strongly slopes add/bleed speed
 
-  // --- Pumping (hold on the ground) ---------------------------------------
-  pumpAccel:           720,    // forward accel while holding on ground (px/s^2)
-  compressionScale:    700,    // terrain compression -> bonus pump
-  maxCompressionBonus: 2.4,    // cap on the compression multiplier
-  pumpChargeRate:      330,    // launch-charge build rate while pumping
-  pumpChargeDecay:     240,    // charge bleed-off when not holding
-  maxPumpCharge:       300,    // stored launch charge cap
+  // --- Pump (hold on ground) ---
+  pumpAccel:          26,    // forward accel while holding (u/s^2)
+  compressionScale:   3.2,   // terrain compression -> bonus pump
+  maxCompressionBonus:2.4,
+  pumpChargeRate:     14,
+  pumpChargeDecay:    11,
+  maxPumpCharge:      12,
 
-  // --- Launch (release near a lip) ----------------------------------------
-  minLaunchSlope:      0.05,   // min upslope (de/dx) to boost off
-  jumpForceMultiplier: 1.5,    // speed*slope -> upward launch velocity
-  pumpLaunchMultiplier:1.7,    // stored charge -> upward launch velocity
-  autoPopThreshold:    1.05,   // >1: how readily sharp crests loft you naturally
+  // --- Launch (release at the lip) ---
+  minLaunchSlope:     0.05,
+  jumpForceMultiplier:1.5,
+  pumpLaunchMultiplier:0.85,
+  autoPopThreshold:   1.05,
 
-  // --- Air rotation / tricks ----------------------------------------------
-  airRotationSpeed:    480,    // max spin speed at full tilt (deg/s)
-  tiltRange:           32,     // tilt (deg from neutral) counted as "full"
-  tiltAxis:            "auto", // "auto" | "beta" | "gamma"
-  tiltInvert:          false,  // flip if back/forward feel reversed
-  dragRotateFactor:    0.75,   // desktop fallback: deg spin per px dragged
+  // --- Air rotation / tricks ---
+  airRotationSpeed:   470,   // deg/s at full tilt
+  tiltRange:          32,    // deg from neutral = full
+  tiltAxis:           "auto",// "auto" | "beta" | "gamma"
+  tiltInvert:         false,
+  dragRotateFactor:   0.7,   // deg per px (desktop fallback)
 
-  // --- Landing & scoring ---------------------------------------------------
-  landingTolerance:    28,     // |bike angle - slope| within this = clean (deg)
-  perfectTolerance:    10,     // within this = PERFECT (bonus + speed boost)
-  landingSpeedKeep:    0.94,   // speed kept on a clean landing
-  perfectSpeedBoost:   1.06,   // speed multiplier on a perfect landing
-  pointsPerFlip:       150,    // base score per completed 360
-  perfectBonus:        75,     // bonus added on a perfect landing
-  comboStep:           0.5,    // multiplier added to combo per trick landed
+  // --- Landing & scoring ---
+  landingTolerance:   28,
+  perfectTolerance:   12,
+  landingSpeedKeep:   0.95,
+  perfectSpeedBoost:  1.06,
+  pointsPerFlip:      150,
+  perfectBonus:       75,
+  comboStep:          0.5,
 
-  // --- Terrain (procedural, infinite) -------------------------------------
-  pointSpacing:        128,    // base px between terrain control points (frequency)
-  rollAmp:             58,     // roller hump size (px)
-  maxElev:             190,    // elevation clamp (px)
-  jumpChance:          0.16,   // base chance a feature is a jump
-  jumpHeight:          120,    // jump lip height (px)
-  gapLength:           230,    // horizontal gap over a jump (px)
-  landingDrop:         70,     // extra drop on the landing side (px)
-  startFlat:           640,    // flat run-in distance before features (world px)
-  difficultyDist:      4200,   // distance over which difficulty ramps to max (m*px)
+  // --- Terrain (procedural, infinite) ---  amplitude (hump size) & k (frequency)
+  terrain: { a1:1.35, k1:0.52, a2:0.6, k2:1.05, a3:0.55, k3:0.285 },
 
-  // --- Bike / rider geometry ----------------------------------------------
-  wheelRadius:         16,
-  wheelBase:           56,
-  crouchDepth:         11,     // how far the rider sinks when pumping (px)
+  // --- Bike geometry ---
+  wheelRadius: 0.4,
+  wheelBase:   1.18,
+  crouchDrop:  0.22,
 
-  // --- Camera / display ----------------------------------------------------
-  riderScreenXFrac:    0.32,   // rider horizontal position (fraction of width)
-  baseLineFrac:        0.66,   // screen y for elevation 0 (fraction of height)
-  camVertFollow:       0.65,   // vertical camera follow on big air (0..1)
-  camLerp:             6,      // camera smoothing speed (1/s)
-  pxPerMeter:          24,     // world px per displayed metre
-  // Faux 3/4 "looking slightly down the track" tilt (BMX-Flow style).
-  tiltDepth:           16,     // thickness of the visible top face (px)
-  tiltSkew:            7,      // how far the top face recedes sideways (px)
+  // --- Camera ---
+  camOffX:  -3.4, camOffY: 3.7, camOffZ: 12.5,
+  lookAheadX: 5.5, lookY: 1.1, fov: 52,
+  camLerp: 5,
 
-  // --- Juice ---------------------------------------------------------------
-  shakeCrash:          22,
-  shakeLand:           7,
-  maxDt:               1/30,
+  // --- Mesh resolution ---
+  NX: 120, NZ: 8, spanBack: 18, spanFront: 48, trackWidth: 22, trackHalf: 3.0,
 };
 
 /* ============================================================================
  *  UTILITIES
  * ==========================================================================*/
-const clamp = (v,a,b)=> v<a?a:v>b?b:v;
-const lerp  = (a,b,t)=> a+(b-a)*t;
-const rand  = (a,b)=> a+Math.random()*(b-a);
-const TAU   = Math.PI*2;
-const DEG   = Math.PI/180;
+const clamp=(v,a,b)=>v<a?a:v>b?b:v;
+const lerp=(a,b,t)=>a+(b-a)*t;
+const rand=(a,b)=>a+Math.random()*(b-a);
+const DEG=Math.PI/180;
 function angleDelta(a,b){ return ((a-b+180)%360+360)%360-180; }
 
 /* ============================================================================
- *  CANVAS
+ *  TERRAIN — analytic, smooth, infinite (function of forward position x)
  * ==========================================================================*/
-const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d");
-let W=0,H=0,baseLine=0,riderScreenX=0,dpr=1;
-function resize(){
-  dpr = Math.min(window.devicePixelRatio||1, 2);
-  W = window.innerWidth; H = window.innerHeight;
-  canvas.width = Math.floor(W*dpr); canvas.height = Math.floor(H*dpr);
-  canvas.style.width = W+"px"; canvas.style.height = H+"px";
-  ctx.setTransform(dpr,0,0,dpr,0,0);
-  baseLine = H*CONFIG.baseLineFrac;
-  riderScreenX = W*CONFIG.riderScreenXFrac;
-}
-window.addEventListener("resize", resize); resize();
+const T=CONFIG.terrain;
+function hAt(x){ return T.a1*Math.sin(x*T.k1)+T.a2*Math.sin(x*T.k2+1.3)+T.a3*Math.sin(x*T.k3+2.1); }
+function slopeAt(x){ const e=0.05; return (hAt(x+e)-hAt(x-e))/(2*e); }
+function curvAt(x){ const e=0.12; return (hAt(x+e)-2*hAt(x)+hAt(x-e))/(e*e); }
+function slopeDeg(x){ return Math.atan(slopeAt(x))/DEG; }
 
 /* ============================================================================
- *  AUDIO — tiny WebAudio synth (created on first user gesture)
+ *  AUDIO — tiny WebAudio synth
  * ==========================================================================*/
-const Sound = {
-  ac:null, muted:false,
+const Sound={ ac:null, muted:false,
   init(){ if(!this.ac){ try{ this.ac=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } },
-  tone(freq, dur, type, vol, slideTo){
-    if(!this.ac||this.muted) return;
-    const t=this.ac.currentTime, o=this.ac.createOscillator(), g=this.ac.createGain();
-    o.type=type||"sine"; o.frequency.setValueAtTime(freq,t);
-    if(slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t+dur);
-    g.gain.setValueAtTime(0.0001,t);
-    g.gain.exponentialRampToValueAtTime(vol||0.2, t+0.01);
-    g.gain.exponentialRampToValueAtTime(0.0001, t+dur);
-    o.connect(g); g.connect(this.ac.destination); o.start(t); o.stop(t+dur+0.02);
-  },
-  noise(dur, vol){
-    if(!this.ac||this.muted) return;
-    const t=this.ac.currentTime, n=Math.floor(this.ac.sampleRate*dur);
-    const buf=this.ac.createBuffer(1,n,this.ac.sampleRate), d=buf.getChannelData(0);
-    for(let i=0;i<n;i++) d[i]=(Math.random()*2-1)*(1-i/n);
-    const s=this.ac.createBufferSource(); s.buffer=buf;
-    const g=this.ac.createGain(); g.gain.value=vol||0.3;
-    const f=this.ac.createBiquadFilter(); f.type="lowpass"; f.frequency.value=900;
-    s.connect(f); f.connect(g); g.connect(this.ac.destination); s.start();
-  },
+  tone(f,d,t,v,to){ if(!this.ac||this.muted)return; const c=this.ac,n=c.currentTime,o=c.createOscillator(),g=c.createGain();
+    o.type=t||"sine"; o.frequency.setValueAtTime(f,n); if(to)o.frequency.exponentialRampToValueAtTime(to,n+d);
+    g.gain.setValueAtTime(0.0001,n); g.gain.exponentialRampToValueAtTime(v||0.2,n+0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001,n+d); o.connect(g); g.connect(c.destination); o.start(n); o.stop(n+d+0.02); },
+  noise(d,v){ if(!this.ac||this.muted)return; const c=this.ac,len=Math.floor(c.sampleRate*d),b=c.createBuffer(1,len,c.sampleRate),da=b.getChannelData(0);
+    for(let i=0;i<len;i++)da[i]=(Math.random()*2-1)*(1-i/len); const s=c.createBufferSource(); s.buffer=b;
+    const g=c.createGain(); g.gain.value=v||0.3; const f=c.createBiquadFilter(); f.type="lowpass"; f.frequency.value=900;
+    s.connect(f); f.connect(g); g.connect(c.destination); s.start(); },
   launch(){ this.tone(220,0.28,"square",0.18,640); },
   flip(){ this.tone(520,0.12,"triangle",0.18,820); },
-  land(){ this.noise(0.14,0.35); this.tone(120,0.16,"sine",0.22,70); },
+  land(){ this.noise(0.14,0.32); this.tone(120,0.16,"sine",0.22,70); },
   perfect(){ this.tone(660,0.1,"triangle",0.2,990); this.tone(990,0.14,"triangle",0.16,1320); },
   crash(){ this.noise(0.45,0.5); this.tone(180,0.5,"sawtooth",0.25,50); },
 };
 
 /* ============================================================================
- *  TERRAIN — control points + Catmull-Rom spline. Generated ahead of the
- *  rider and pruned behind, so it is genuinely infinite. (Self-contained so
- *  alternate level types can swap this module out later.)
+ *  GAME STATE
  * ==========================================================================*/
-const Terrain = {
-  pts:[], genX:0, genE:0,
-
-  reset(){
-    this.pts.length=0; this.genX=0; this.genE=0;
-    // Flat run-in so the rider always starts cleanly.
-    for(let i=0;i<6;i++){ this.pts.push({x:i*CONFIG.pointSpacing, e:0}); }
-    this.genX = 5*CONFIG.pointSpacing; this.genE = 0;
-    this.ensure(2000);
-  },
-  difficulty(){ return clamp(player ? player.x/CONFIG.difficultyDist : 0, 0, 1); },
-
-  pushNext(){
-    const d=this.difficulty();
-    const sp=CONFIG.pointSpacing*rand(0.85,1.2);
-    if(this.genX>CONFIG.startFlat && Math.random()<CONFIG.jumpChance*(0.55+0.9*d)){
-      // JUMP: ramp up to a lip, then a gap down to a lower landing.
-      const h=CONFIG.jumpHeight*rand(0.7,1.25)*(0.8+0.45*d);
-      this.genX+=sp; this.genE=clamp(this.genE+h,-CONFIG.maxElev,CONFIG.maxElev);
-      this.pts.push({x:this.genX,e:this.genE});
-      const gap=CONFIG.gapLength*rand(0.8,1.3);
-      this.genX+=gap; this.genE=clamp(this.genE-h-CONFIG.landingDrop*Math.random(),-CONFIG.maxElev,CONFIG.maxElev);
-      this.pts.push({x:this.genX,e:this.genE});
-    } else {
-      // ROLLER: gentle mean-reverting random walk.
-      const amp=CONFIG.rollAmp*(0.6+0.8*d);
-      this.genE=clamp(this.genE*0.5+rand(-1,1)*amp, -CONFIG.maxElev*0.7, CONFIG.maxElev*0.7);
-      this.genX+=sp; this.pts.push({x:this.genX,e:this.genE});
-    }
-  },
-  ensure(uptoX){ while(this.pts[this.pts.length-1].x < uptoX) this.pushNext(); },
-  prune(leftX){ while(this.pts.length>4 && this.pts[2].x < leftX) this.pts.shift(); },
-
-  segIndex(x){
-    const p=this.pts;
-    if(x<=p[0].x) return 0;
-    if(x>=p[p.length-1].x) return p.length-2;
-    let lo=0,hi=p.length-1;
-    while(hi-lo>1){ const m=(lo+hi)>>1; if(p[m].x<=x) lo=m; else hi=m; }
-    return lo;
-  },
-  elevAt(x){
-    const p=this.pts; const i=this.segIndex(x);
-    const p1=p[i], p2=p[i+1];
-    const p0=p[i-1]||p1, p3=p[i+2]||p2;
-    const t=clamp((x-p1.x)/(p2.x-p1.x||1),0,1), t2=t*t, t3=t2*t;
-    return 0.5*((2*p1.e)+(-p0.e+p2.e)*t+(2*p0.e-5*p1.e+4*p2.e-p3.e)*t2+(-p0.e+3*p1.e-3*p2.e+p3.e)*t3);
-  },
-  slopeAt(x){ const d=2; return (this.elevAt(x+d)-this.elevAt(x-d))/(2*d); },
-  curvAt(x){ const d=4; return (this.elevAt(x+d)-2*this.elevAt(x)+this.elevAt(x-d))/(d*d); },
-};
-
-/* ============================================================================
- *  SCENERY — parallax background layers (purely cosmetic)
- * ==========================================================================*/
-const Scenery = {
-  clouds:[], hillsFar:[], hillsMid:[],
-  reset(){
-    this.clouds=[]; for(let i=0;i<7;i++) this.clouds.push({x:rand(0,2000),y:rand(40,H*0.4),s:rand(0.5,1.2),sp:rand(6,16)});
-  },
-  // Deterministic hill silhouette via layered sines (no allocation needed).
-  hill(worldX, freq, amp, phase){ return Math.sin(worldX*freq+phase)*amp + Math.sin(worldX*freq*2.3+phase)*amp*0.35; },
-};
-
-/* ============================================================================
- *  PARTICLES — dirt spray, boost puffs, crash debris
- * ==========================================================================*/
-const Particles = {
-  list:[],
-  reset(){ this.list.length=0; },
-  spawn(wx,wy,vx,vy,life,size,col){ this.list.push({wx,wy,vx,vy,life,max:life,size,col}); },
-  burst(wx,wy,n,power,col){
-    for(let i=0;i<n;i++){ const a=rand(0,TAU),s=rand(0.2,1)*power;
-      this.spawn(wx,wy,Math.cos(a)*s,Math.sin(a)*s-power*0.4,rand(0.4,0.9),rand(2,5),col); }
-  },
-  update(dt){
-    for(let i=this.list.length-1;i>=0;i--){ const p=this.list[i];
-      p.life-=dt; if(p.life<=0){ this.list.splice(i,1); continue; }
-      p.vy+=1200*dt; p.wx+=p.vx*dt; p.wy+=p.vy*dt;
-    }
-  },
-};
-
-/* ============================================================================
- *  PLAYER / BIKE STATE
- * ==========================================================================*/
-let player, score, trickPoints, distanceM, best=0, combo=0;
-let popups=[], flipFlash={t:0,txt:"",col:"#fff"}, shake=0, wheelAngle=0;
+let state="start";
+let player, score=0, trickPoints=0, distanceM=0, best=0, combo=0;
+let shake=0, wheelSpin=0, camY=0, bannerT=0;
 
 function loadBest(){ try{ best=parseInt(localStorage.getItem("bmxflow_best")||"0",10)||0; }catch(e){ best=0; } }
-function saveBest(){ try{ localStorage.setItem("bmxflow_best", String(best)); }catch(e){} }
+function saveBest(){ try{ localStorage.setItem("bmxflow_best",String(best)); }catch(e){} }
 
 function resetGame(){
-  Terrain.reset(); Scenery.reset(); Particles.reset();
-  player = {
-    x:0, ry:0, vx:CONFIG.baseSpeed, vyUp:0,
-    angle:0, onGround:true, pumpCharge:0,
-    takeoffAngle:0, totalRotation:0, crouch:0, landGrace:0,
-  };
-  player.ry=Terrain.elevAt(0); player.angle=slopeDeg(0);
-  Terrain.ensure(2000);
-  score=0; trickPoints=0; distanceM=0; combo=0;
-  popups=[]; flipFlash={t:0,txt:"",col:"#fff"}; shake=0; wheelAngle=0;
-  camY=0;
+  player={ x:0, ry:hAt(0), vx:CONFIG.baseSpeed, vyUp:0, angle:slopeDeg(0),
+           onGround:true, pumpCharge:0, takeoffAngle:0, totalRotation:0, crouch:0, landGrace:0 };
+  score=0; trickPoints=0; distanceM=0; combo=0; shake=0; wheelSpin=0; camY=player.ry;
   input.holding=false; input.pointerDown=false; input.launchRequested=false;
 }
-function slopeDeg(x){ return Math.atan(Terrain.slopeAt(x))/DEG; }
 
 /* ============================================================================
- *  INPUT — one button (hold) + tilt, with desktop drag fallback
+ *  INPUT
  * ==========================================================================*/
 const input={ holding:false, pointerDown:false, launchRequested:false, tilt:0 };
 let orientationActive=false, neutralTilt=null, lastPointerY=0;
-
-function pointerY(e){
-  if(e.touches&&e.touches.length) return e.touches[0].clientY;
-  if(e.changedTouches&&e.changedTouches.length) return e.changedTouches[0].clientY;
-  return e.clientY;
-}
-function onDown(e){ if(state!=="play")return; e.preventDefault();
-  input.pointerDown=true; input.holding=true; lastPointerY=pointerY(e); }
-function onMove(e){ if(state!=="play"||!input.pointerDown)return; e.preventDefault();
-  const y=pointerY(e);
-  if(!orientationActive && !player.onGround){          // drag-to-flip fallback
-    const da=(lastPointerY-y)*CONFIG.dragRotateFactor;
-    player.angle+=da; player.totalRotation+=da;
-  }
-  lastPointerY=y;
-}
+function pY(e){ if(e.touches&&e.touches.length)return e.touches[0].clientY;
+  if(e.changedTouches&&e.changedTouches.length)return e.changedTouches[0].clientY; return e.clientY; }
+function onDown(e){ if(state!=="play")return; e.preventDefault(); input.pointerDown=true; input.holding=true; lastPointerY=pY(e); }
+function onMove(e){ if(state!=="play"||!input.pointerDown)return; e.preventDefault(); const y=pY(e);
+  if(!orientationActive && !player.onGround){ const da=(lastPointerY-y)*CONFIG.dragRotateFactor; player.angle+=da; player.totalRotation+=da; }
+  lastPointerY=y; }
 function onUp(e){ if(state!=="play")return; e.preventDefault();
-  if(input.holding && player.onGround) input.launchRequested=true;
-  input.holding=false; input.pointerDown=false;
+  if(input.holding && player.onGround) input.launchRequested=true; input.holding=false; input.pointerDown=false; }
+function bindInput(){
+  window.addEventListener("touchstart",onDown,{passive:false});
+  window.addEventListener("touchmove",onMove,{passive:false});
+  window.addEventListener("touchend",onUp,{passive:false});
+  window.addEventListener("touchcancel",onUp,{passive:false});
+  window.addEventListener("mousedown",onDown);
+  window.addEventListener("mousemove",onMove);
+  window.addEventListener("mouseup",onUp);
 }
-canvas.addEventListener("touchstart",onDown,{passive:false});
-canvas.addEventListener("touchmove",onMove,{passive:false});
-canvas.addEventListener("touchend",onUp,{passive:false});
-canvas.addEventListener("touchcancel",onUp,{passive:false});
-canvas.addEventListener("mousedown",onDown);
-canvas.addEventListener("mousemove",onMove);
-window.addEventListener("mouseup",onUp);
-
-function tiltRaw(e){
-  const o = (screen.orientation&&screen.orientation.angle!=null)?screen.orientation.angle:(window.orientation||0);
-  if(CONFIG.tiltAxis==="beta")  return e.beta;
-  if(CONFIG.tiltAxis==="gamma") return e.gamma;
-  if(o===90)  return -e.gamma;            // landscape
-  if(o===270||o===-90) return e.gamma;    // landscape (other way)
-  return e.beta;                           // portrait
-}
-function onOrient(e){
-  if(e.beta==null && e.gamma==null) return;
-  const raw=tiltRaw(e); if(raw==null) return;
-  orientationActive=true;
-  if(neutralTilt==null) neutralTilt=raw;
-  let d=raw-neutralTilt;
-  input.tilt=clamp(d/CONFIG.tiltRange,-1,1)*(CONFIG.tiltInvert?-1:1);
-}
+function tiltRaw(e){ const o=(screen.orientation&&screen.orientation.angle!=null)?screen.orientation.angle:(window.orientation||0);
+  if(CONFIG.tiltAxis==="beta")return e.beta; if(CONFIG.tiltAxis==="gamma")return e.gamma;
+  if(o===90)return -e.gamma; if(o===270||o===-90)return e.gamma; return e.beta; }
+function onOrient(e){ if(e.beta==null&&e.gamma==null)return; const raw=tiltRaw(e); if(raw==null)return;
+  orientationActive=true; if(neutralTilt==null)neutralTilt=raw;
+  input.tilt=clamp((raw-neutralTilt)/CONFIG.tiltRange,-1,1)*(CONFIG.tiltInvert?-1:1); }
 
 /* ============================================================================
- *  UPDATE / PHYSICS
+ *  PHYSICS (same loop, in world units)
  * ==========================================================================*/
 function update(dt){
-  if(state!=="play"){ Particles.update(dt); decay(dt); return; }
-  if(player.onGround) updateGround(dt); else updateAir(dt);
-
-  // Wheel spin + camera + cosmetics.
-  wheelAngle += (player.vx*dt)/CONFIG.wheelRadius;
-  Terrain.ensure(player.x + W + 600);
-  Terrain.prune(player.x - W);
-  Particles.update(dt);
-
-  const camTarget = player.onGround ? player.ry*0.25 : player.ry*CONFIG.camVertFollow;
-  camY = lerp(camY, camTarget, 1-Math.exp(-CONFIG.camLerp*dt));
-
-  distanceM=Math.max(0,Math.floor(player.x/CONFIG.pxPerMeter));
+  if(state!=="play"){ if(bannerT>0)bannerT-=dt; if(shake>0)shake=Math.max(0,shake-shake*8*dt-12*dt); return; }
+  player.onGround?updateGround(dt):updateAir(dt);
+  wheelSpin -= (player.vx*dt)/CONFIG.wheelRadius;
+  distanceM=Math.max(0,Math.floor(player.x));
   score=distanceM+trickPoints;
-  decay(dt);
+  if(bannerT>0)bannerT-=dt;
+  if(shake>0)shake=Math.max(0,shake-shake*8*dt-12*dt);
 }
-function decay(dt){
-  if(flipFlash.t>0) flipFlash.t-=dt;
-  if(shake>0) shake=Math.max(0,shake-shake*8*dt-12*dt);
-  for(let i=popups.length-1;i>=0;i--){ const p=popups[i]; p.t-=dt; p.wy-=40*dt; if(p.t<=0) popups.splice(i,1); }
-}
-
 function updateGround(dt){
-  const x=player.x, slope=Terrain.slopeAt(x);
+  const x=player.x, slope=slopeAt(x);
   player.angle=Math.atan(slope)/DEG;
-  if(player.landGrace>0) player.landGrace-=dt;
-
-  // Pump: bigger gain inside a compression (concave-up transition).
+  if(player.landGrace>0)player.landGrace-=dt;
   let crouchTarget=0;
   if(input.holding){
     crouchTarget=1;
-    const comp=Math.max(0,Terrain.curvAt(x))*CONFIG.compressionScale;
+    const comp=Math.max(0,curvAt(x))*CONFIG.compressionScale;
     const pf=1+Math.min(comp,CONFIG.maxCompressionBonus);
     player.vx+=CONFIG.pumpAccel*pf*dt;
     player.pumpCharge=Math.min(CONFIG.maxPumpCharge,player.pumpCharge+CONFIG.pumpChargeRate*pf*dt);
-    if(Math.random()<pf*dt*6) Particles.spawn(x-20,Terrain.elevAt(x-20),rand(-40,-120),rand(-20,40),rand(0.3,0.6),rand(2,4),"#8a5a2f");
-  } else {
-    player.pumpCharge=Math.max(0,player.pumpCharge-CONFIG.pumpChargeDecay*dt);
-  }
+    Scene.spawnDust(0.3*pf);
+  } else { player.pumpCharge=Math.max(0,player.pumpCharge-CONFIG.pumpChargeDecay*dt); }
   player.crouch=lerp(player.crouch,crouchTarget,1-Math.exp(-12*dt));
-
-  // Slope feeds/bleeds speed; gentle return to cruise; clamp.
   const sinS=slope/Math.sqrt(1+slope*slope);
   player.vx+=-sinS*CONFIG.gravity*CONFIG.slopeGravityScale*dt;
   player.vx+=(CONFIG.baseSpeed-player.vx)*CONFIG.speedReturn*dt;
   player.vx=clamp(player.vx,CONFIG.baseSpeed*0.45,CONFIG.maxSpeed);
-
   player.x+=player.vx*dt;
-  player.ry=Terrain.elevAt(player.x);
-
-  const nx=player.x, nSlope=Terrain.slopeAt(nx), nCurv=Terrain.curvAt(nx);
-
-  // Explicit boost: released on an upslope -> pop off the lip.
-  if(input.launchRequested){
-    input.launchRequested=false;
-    if(nSlope>CONFIG.minLaunchSlope) doLaunch(nx,nSlope,true);
-  }
-  // Natural air: sharp crest the wheels can't track -> loft off.
-  else if(player.onGround && player.landGrace<=0 && nCurv<0 &&
-          player.vx*player.vx*(-nCurv) > CONFIG.gravity*CONFIG.autoPopThreshold){
+  player.ry=hAt(player.x);
+  const nx=player.x, nSlope=slopeAt(nx), nCurv=curvAt(nx);
+  if(input.launchRequested){ input.launchRequested=false; if(nSlope>CONFIG.minLaunchSlope)doLaunch(nx,nSlope,true); }
+  else if(player.landGrace<=0 && nCurv<0 && player.vx*player.vx*(-nCurv)>CONFIG.gravity*CONFIG.autoPopThreshold)
     doLaunch(nx,nSlope,false);
-  }
 }
-
 function doLaunch(x,slope,boosted){
   const sinUp=slope/Math.sqrt(1+slope*slope);
   let vUp=Math.max(player.vx*sinUp,0);
-  if(boosted){
-    vUp = vUp*CONFIG.jumpForceMultiplier + player.pumpCharge*CONFIG.pumpLaunchMultiplier;
-    Particles.burst(x,Terrain.elevAt(x),14,420,"#cf9b56");
-    Sound.launch();
-  }
-  player.vyUp=Math.max(vUp,60);
-  player.onGround=false;
-  player.takeoffAngle=player.angle;
-  player.totalRotation=0;
-  player.pumpCharge=0;
-  player.crouch=-0.6;   // extend on pop
+  if(boosted){ vUp=vUp*CONFIG.jumpForceMultiplier+player.pumpCharge*CONFIG.pumpLaunchMultiplier; Scene.spawnDust(3); Sound.launch(); }
+  player.vyUp=Math.max(vUp,1.5);
+  player.onGround=false; player.takeoffAngle=player.angle; player.totalRotation=0;
+  player.pumpCharge=0; player.crouch=-0.6;
 }
-
 function updateAir(dt){
   player.vyUp-=CONFIG.gravity*dt;
   player.ry+=player.vyUp*dt;
   player.vx+=(CONFIG.baseSpeed-player.vx)*CONFIG.airDrag*dt;
   player.x+=player.vx*dt;
   player.crouch=lerp(player.crouch,0,1-Math.exp(-7*dt));
-
   if(orientationActive){
     const before=Math.floor(Math.abs(player.totalRotation)/360);
-    const da=CONFIG.airRotationSpeed*input.tilt*dt;
-    player.angle+=da; player.totalRotation+=da;
-    if(Math.floor(Math.abs(player.totalRotation)/360)>before) Sound.flip();
+    const da=CONFIG.airRotationSpeed*input.tilt*dt; player.angle+=da; player.totalRotation+=da;
+    if(Math.floor(Math.abs(player.totalRotation)/360)>before)Sound.flip();
   }
-
-  const groundE=Terrain.elevAt(player.x);
-  if(player.ry<=groundE && player.vyUp<=0){
-    const sDeg=slopeDeg(player.x);
-    const diff=Math.abs(angleDelta(player.angle,sDeg));
-    if(diff<=CONFIG.landingTolerance) land(groundE,sDeg,diff);
-    else crash();
+  const gE=hAt(player.x);
+  if(player.ry<=gE && player.vyUp<=0){
+    const sDeg=slopeDeg(player.x), diff=Math.abs(angleDelta(player.angle,sDeg));
+    if(diff<=CONFIG.landingTolerance)land(gE,sDeg,diff); else crash();
   }
 }
-
-function land(groundE,sDeg,diff){
+function land(gE,sDeg,diff){
   const flips=Math.floor(Math.abs(player.totalRotation)/360);
   const perfect=diff<=CONFIG.perfectTolerance;
   if(flips>0){
-    combo+=1;
-    const mult=1+(combo-1)*CONFIG.comboStep;
-    let pts=Math.round(flips*CONFIG.pointsPerFlip*mult);
-    if(perfect) pts+=CONFIG.perfectBonus;
+    combo+=1; const mult=1+(combo-1)*CONFIG.comboStep;
+    let pts=Math.round(flips*CONFIG.pointsPerFlip*mult); if(perfect)pts+=CONFIG.perfectBonus;
     trickPoints+=pts;
     const dir=player.totalRotation<0?"FRONT":"BACK";
-    const name=(flips>1?flips+"x ":"")+dir+"FLIP";
-    flipFlash={t:1.2, txt:(perfect?"PERFECT ":"")+name+"  +"+pts+(mult>1?"  x"+mult.toFixed(1):""), col:perfect?"#7CFC9A":"#ffd24a"};
-    popups.push({wx:player.x,wy:groundE+60,t:1.0,txt:"+"+pts,col:perfect?"#7CFC9A":"#ffd24a"});
+    showBanner((perfect?"PERFECT ":"")+(flips>1?flips+"x ":"")+dir+"FLIP  +"+pts+(mult>1?"  x"+mult.toFixed(1):""), perfect?"#7CFC9A":"#ffd24a");
     perfect?Sound.perfect():Sound.land();
-  } else {
-    if(perfect && player.vyUp<-260){ /* clean stomp, no trick */ }
-    Sound.land();
-    if(flips===0) combo=0;
-  }
-  shake=Math.max(shake, perfect?CONFIG.shakeLand*1.6:CONFIG.shakeLand);
-  Particles.burst(player.x,groundE,10,Math.min(420,Math.abs(player.vyUp)+120),"#8a5a2f");
-
-  player.onGround=true; player.ry=groundE; player.vyUp=0;
-  player.angle=sDeg; player.totalRotation=0; player.landGrace=0.12;
-  player.vx*=perfect?CONFIG.perfectSpeedBoost:CONFIG.landingSpeedKeep;
-  player.vx=Math.min(player.vx,CONFIG.maxSpeed);
+  } else { Sound.land(); combo=0; }
+  shake=Math.max(shake, perfect?0.5:0.25);
+  Scene.spawnDust(2.4);
+  player.onGround=true; player.ry=gE; player.vyUp=0; player.angle=sDeg; player.totalRotation=0; player.landGrace=0.12;
+  player.vx*=perfect?CONFIG.perfectSpeedBoost:CONFIG.landingSpeedKeep; player.vx=Math.min(player.vx,CONFIG.maxSpeed);
 }
-
 function crash(){
-  state="over"; combo=0; shake=CONFIG.shakeCrash;
-  Particles.burst(player.x,Terrain.elevAt(player.x),26,520,"#8a5a2f");
-  Particles.burst(player.x,player.ry,16,360,"#c44");
-  Sound.crash();
+  state="over"; combo=0; shake=0.8; Scene.spawnDust(5); Sound.crash();
   if(score>best){ best=score; saveBest(); }
   document.getElementById("goScore").textContent=score;
   document.getElementById("goBest").textContent=best;
@@ -529,372 +331,278 @@ function crash(){
 }
 
 /* ============================================================================
- *  RENDER
+ *  HUD helpers
  * ==========================================================================*/
-function sy(elev){ return baseLine-(elev-camY); }   // elevation -> screen y
-
-function render(){
-  const camX=player.x-riderScreenX;
-  let ox=0,oy=0;
-  if(shake>0){ ox=rand(-shake,shake); oy=rand(-shake,shake); }
-  ctx.save(); ctx.translate(ox,oy);
-
-  drawSky();
-  drawParallax(camX);
-  drawTerrain(camX);
-  drawParticles(camX);
-  drawBike(camX);
-  ctx.restore();
-
-  drawVignette();
-  drawHUD();
+const banner=document.getElementById("banner");
+function showBanner(txt,col){ banner.textContent=txt; banner.style.color=col; bannerT=1.2; }
+function updateHUD(){
+  document.getElementById("score").textContent=score;
+  document.getElementById("sub").textContent="SCORE · "+distanceM+" m · BEST "+best;
+  document.getElementById("pumpFill").style.width=(100*player.pumpCharge/CONFIG.maxPumpCharge)+"%";
+  const rot=document.getElementById("rot");
+  if(!player.onGround){ rot.style.display="block"; rot.textContent=Math.round(Math.abs(player.totalRotation))+"°"; }
+  else rot.style.display="none";
+  const cm=document.getElementById("combo");
+  if(combo>1){ cm.style.display="block"; cm.textContent="COMBO x"+(1+(combo-1)*CONFIG.comboStep).toFixed(1); } else cm.style.display="none";
+  banner.style.opacity = bannerT>0 ? clamp(bannerT/0.4,0,1) : 0;
 }
 
-// Thick outlined stroke through a list of points — gives the cartoon look.
-function strokePath(pts,w,col,outline){
-  ctx.lineCap="round"; ctx.lineJoin="round";
-  ctx.beginPath(); ctx.moveTo(pts[0][0],pts[0][1]);
-  for(let i=1;i<pts.length;i++) ctx.lineTo(pts[i][0],pts[i][1]);
-  if(outline){ ctx.lineWidth=w+3.5; ctx.strokeStyle=outline; ctx.stroke(); }
-  ctx.lineWidth=w; ctx.strokeStyle=col; ctx.stroke();
-}
-function drawVignette(){
-  const g=ctx.createRadialGradient(W/2,H*0.45,Math.min(W,H)*0.42,W/2,H*0.45,Math.max(W,H)*0.78);
-  g.addColorStop(0,"rgba(0,0,0,0)"); g.addColorStop(1,"rgba(10,20,35,0.26)");
-  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
-}
-function hash2(i){ const s=Math.sin(i*43.137+11.7)*7219.31; return s-Math.floor(s); }
+/* ============================================================================
+ *  3D SCENE (Three.js)
+ * ==========================================================================*/
+const Scene={
+  renderer:null, scene:null, camera:null, sun:null,
+  terrain:null, tPos:null, tLocalX:null, bike:null, wheels:[], riderGroup:null,
+  trees:[], mountains:null, dust:[], dustGeo:null, dustMat:null,
 
-function drawSky(){
-  const g=ctx.createLinearGradient(0,-40,0,H);
-  g.addColorStop(0,"#2c6aac"); g.addColorStop(0.4,"#5e9ed6");
-  g.addColorStop(0.78,"#a6d3ef"); g.addColorStop(1,"#e2f2fb");
-  ctx.fillStyle=g; ctx.fillRect(-40,-40,W+80,H+80);
-  // sun + soft glow
-  const sunX=W*0.8, sunY=H*0.19;
-  const rg=ctx.createRadialGradient(sunX,sunY,8,sunX,sunY,190);
-  rg.addColorStop(0,"rgba(255,248,214,0.95)");
-  rg.addColorStop(0.32,"rgba(255,240,188,0.45)");
-  rg.addColorStop(1,"rgba(255,240,188,0)");
-  ctx.fillStyle=rg; ctx.fillRect(sunX-200,sunY-200,400,400);
-  ctx.fillStyle="#fff6cf"; ctx.beginPath(); ctx.arc(sunX,sunY,38,0,TAU); ctx.fill();
-}
+  init(){
+    const cv=document.getElementById("c");
+    this.renderer=new THREE.WebGLRenderer({canvas:cv, antialias:true, alpha:true});
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+    this.renderer.setSize(window.innerWidth, window.innerHeight);
+    this.renderer.shadowMap.enabled=true; this.renderer.shadowMap.type=THREE.PCFSoftShadowMap;
 
-function drawParallax(camX){
-  // distant hazy mountains
-  drawRidge(camX*0.10, 0.0011, 130, H*0.44, "#7e92c0", "#a6b7da");
-  drawRidge(camX*0.18, 0.0020, 95,  H*0.50, "#90a6cf", "#bccbe6");
-  // clouds
-  ctx.fillStyle="rgba(255,255,255,0.93)";
-  for(const c of Scenery.clouds){
-    c.x-=c.sp*0.016; if(c.x<camX*0.1-280) c.x=camX*0.1+W+rand(120,440);
-    drawCloud(c.x-camX*0.1, c.y, 17*c.s);
-  }
-  // green, tree-covered hill bands
-  drawHillBand(camX*0.40, 0.0026, 92,  H*0.60, "#5d9c4c", 150, 1.05, "#3f7a36", "#7dc05f");
-  drawHillBand(camX*0.66, 0.0041, 128, H*0.73, "#4a8a3c", 118, 1.5,  "#346a2b", "#6cb04e");
-}
-function hillY(wx,freq,amp){ return Math.sin(wx*freq)*amp + Math.sin(wx*freq*2.3+0.7)*amp*0.32; }
-function drawRidge(scroll, freq, amp, yBase, top, bot){
-  ctx.beginPath(); ctx.moveTo(-20,H);
-  for(let sx=-20;sx<=W+20;sx+=12){
-    const wx=sx+scroll;
-    const y=yBase - (Math.sin(wx*freq)*amp + Math.sin(wx*freq*2.7+1.3)*amp*0.4 + Math.sin(wx*freq*0.5)*amp*0.5);
-    ctx.lineTo(sx,y);
-  }
-  ctx.lineTo(W+20,H); ctx.closePath();
-  const g=ctx.createLinearGradient(0,yBase-amp,0,yBase+amp);
-  g.addColorStop(0,top); g.addColorStop(1,bot);
-  ctx.fillStyle=g; ctx.fill();
-}
-function drawCloud(px,py,r){
-  ctx.beginPath();
-  ctx.arc(px,py,r,0,TAU); ctx.arc(px+r*1.1,py+5,r*0.82,0,TAU);
-  ctx.arc(px-r*1.0,py+6,r*0.7,0,TAU); ctx.arc(px+r*0.3,py-r*0.7,r*0.72,0,TAU);
-  ctx.arc(px+r*1.95,py+7,r*0.55,0,TAU);
-  ctx.fill();
-}
-function drawHillBand(scroll, freq, amp, yBase, col, treeSpace, treeScale, treeDark, treeLite){
-  // hill body
-  ctx.beginPath(); ctx.moveTo(-20,H);
-  for(let sx=-20;sx<=W+20;sx+=12){ const wx=sx+scroll; ctx.lineTo(sx, yBase-hillY(wx,freq,amp)); }
-  ctx.lineTo(W+20,H); ctx.closePath(); ctx.fillStyle=col; ctx.fill();
-  // trees on the ridge (deterministic in world space -> no flicker)
-  const k0=Math.floor((scroll-120)/treeSpace), k1=Math.ceil((scroll+W+120)/treeSpace);
-  for(let k=k0;k<=k1;k++){
-    const h=hash2(k); const tw=k*treeSpace+(h-0.5)*treeSpace*0.6;
-    const sx=tw-scroll, y=yBase-hillY(tw,freq,amp);
-    drawTree(sx, y+5, treeScale*(0.8+h*0.55), col, treeDark, treeLite);
-  }
-}
-function drawTree(px,baseY,sc,mid,dark,lite){
-  ctx.fillStyle="#4a3320"; ctx.fillRect(px-1.6*sc, baseY-10*sc, 3.2*sc, 12*sc);
-  ctx.fillStyle=dark;                                   // base foliage
-  ctx.beginPath();
-  ctx.arc(px, baseY-16*sc, 9*sc,0,TAU);
-  ctx.arc(px-6.5*sc, baseY-11*sc, 6.8*sc,0,TAU);
-  ctx.arc(px+6.5*sc, baseY-11*sc, 6.8*sc,0,TAU);
-  ctx.fill();
-  ctx.fillStyle=lite;                                   // sunlit top-left
-  ctx.beginPath();
-  ctx.arc(px-3*sc, baseY-19*sc, 5.5*sc,0,TAU);
-  ctx.arc(px+3*sc, baseY-17*sc, 4.5*sc,0,TAU);
-  ctx.fill();
-}
+    this.scene=new THREE.Scene();
+    this.scene.fog=new THREE.Fog(0xbcdcf0, 34, 95);
 
-function drawTerrain(camX){
-  const step=6;
-  const tD=CONFIG.tiltDepth, tS=CONFIG.tiltSkew;
-  const surf = s => sy(Terrain.elevAt(s+camX));   // near contact line at screen x
+    this.camera=new THREE.PerspectiveCamera(CONFIG.fov, window.innerWidth/window.innerHeight, 0.1, 400);
 
-  // Front (cut) dirt face.
-  ctx.beginPath(); ctx.moveTo(-step,H+40);
-  for(let s=-step;s<=W+step;s+=step) ctx.lineTo(s,surf(s));
-  ctx.lineTo(W+step,H+40); ctx.closePath();
-  const g=ctx.createLinearGradient(0,baseLine-CONFIG.maxElev,0,H);
-  g.addColorStop(0,"#9c6936"); g.addColorStop(0.5,"#7c5026"); g.addColorStop(1,"#5a3819");
-  ctx.fillStyle=g; ctx.fill();
+    this.scene.add(new THREE.HemisphereLight(0xcfe8ff, 0x6b7f55, 0.95));
+    const sun=new THREE.DirectionalLight(0xfff2cf, 1.05);
+    sun.castShadow=true; sun.shadow.mapSize.set(1024,1024);
+    const sc=sun.shadow.camera; sc.left=-20; sc.right=20; sc.top=20; sc.bottom=-20; sc.near=1; sc.far=120;
+    sun.shadow.bias=-0.0004;
+    this.sun=sun; this.scene.add(sun); this.scene.add(sun.target);
 
-  // Dirt strata bands (clipped to the dirt) for texture.
-  ctx.save();
-  ctx.beginPath(); ctx.moveTo(-step,H+40);
-  for(let s=-step;s<=W+step;s+=step) ctx.lineTo(s,surf(s));
-  ctx.lineTo(W+step,H+40); ctx.closePath(); ctx.clip();
-  ctx.strokeStyle="rgba(64,40,18,0.22)"; ctx.lineWidth=3; ctx.lineJoin="round";
-  for(let band=24; band<240; band+=30){
-    ctx.beginPath();
-    for(let s=-step;s<=W+step;s+=step){ const p=surf(s)+band; (s===-step?ctx.moveTo:ctx.lineTo).call(ctx,s,p); }
-    ctx.stroke();
-  }
-  ctx.restore();
+    this.buildTerrain(); this.buildBike(); this.buildTrees(); this.buildMountains(); this.buildDust();
+    window.addEventListener("resize",()=>this.resize());
+  },
+  resize(){ const w=window.innerWidth,h=window.innerHeight;
+    this.renderer.setSize(w,h); this.camera.aspect=w/h; this.camera.updateProjectionMatrix(); },
 
-  // Top (rideable) face — sunlit dirt, pushed up+back for the 3/4 look.
-  ctx.beginPath();
-  for(let s=-step;s<=W+step;s+=step){ const p=surf(s); (s===-step?ctx.moveTo:ctx.lineTo).call(ctx,s,p); }
-  for(let s=W+step;s>=-step;s-=step){ ctx.lineTo(s+tS, surf(s)-tD); }
-  ctx.closePath(); ctx.fillStyle="#bd8a4f"; ctx.fill();
-
-  // Edge definition: bright back lip + dark near lip.
-  ctx.beginPath();
-  for(let s=-step;s<=W+step;s+=step){ const p=surf(s)-tD; (s===-step?ctx.moveTo:ctx.lineTo).call(ctx,s+tS,p); }
-  ctx.lineWidth=2.5; ctx.strokeStyle="#dcab66"; ctx.lineJoin="round"; ctx.stroke();
-  ctx.beginPath();
-  for(let s=-step;s<=W+step;s+=step){ const p=surf(s); (s===-step?ctx.moveTo:ctx.lineTo).call(ctx,s,p); }
-  ctx.lineWidth=2.5; ctx.strokeStyle="#472c14"; ctx.lineJoin="round"; ctx.stroke();
-
-  // Deterministic surface detail: grass tufts on the lip, rocks on the face.
-  const startWx=Math.floor(camX/46)*46;
-  for(let wx=startWx; wx<camX+W+46; wx+=46){
-    const h=hash2(Math.floor(wx/46)+5000); const px=wx-camX, yTop=sy(Terrain.elevAt(wx));
-    if(h<0.45){
-      ctx.strokeStyle="#5aa336"; ctx.lineWidth=2; ctx.lineCap="round";
-      for(let b=-2;b<=2;b++){ ctx.beginPath(); ctx.moveTo(px+b*2.4, yTop); ctx.lineTo(px+b*2.4+(h-0.45)*8, yTop-6-Math.abs(b)*1.5); ctx.stroke(); }
-      ctx.lineCap="butt";
-    } else if(h<0.66){
-      ctx.fillStyle="#6e5c4a"; ctx.beginPath(); ctx.ellipse(px, yTop+20, 5, 3.4,0,0,TAU); ctx.fill();
-      ctx.fillStyle="#85715c"; ctx.beginPath(); ctx.ellipse(px-1, yTop+19, 2.5,1.6,0,0,TAU); ctx.fill();
+  buildTerrain(){
+    const NX=CONFIG.NX, NZ=CONFIG.NZ, cols=NX+1, rows=NZ+1;
+    const span=CONFIG.spanBack+CONFIG.spanFront, WZ=CONFIG.trackWidth;
+    const verts=new Float32Array(cols*rows*3), colors=new Float32Array(cols*rows*3);
+    this.tLocalX=new Float32Array(cols);
+    const dirt=new THREE.Color(0x9c6936), grass=new THREE.Color(0x5d9c4e);
+    for(let i=0;i<cols;i++) this.tLocalX[i]=-CONFIG.spanBack+(i/NX)*span;
+    for(let i=0;i<cols;i++)for(let j=0;j<rows;j++){
+      const n=i*rows+j, z=-WZ/2+(j/NZ)*WZ;
+      verts[n*3]=this.tLocalX[i]; verts[n*3+1]=0; verts[n*3+2]=z;
+      const tt=clamp((Math.abs(z)-CONFIG.trackHalf)/2.2,0,1);
+      const c=dirt.clone().lerp(grass,tt);
+      colors[n*3]=c.r; colors[n*3+1]=c.g; colors[n*3+2]=c.b;
     }
-  }
-}
+    const idx=[];
+    for(let i=0;i<NX;i++)for(let j=0;j<NZ;j++){
+      const a=i*rows+j, b=a+rows;
+      idx.push(a,b,a+1, a+1,b,b+1);
+    }
+    const geo=new THREE.BufferGeometry();
+    geo.setAttribute("position",new THREE.BufferAttribute(verts,3));
+    geo.setAttribute("color",new THREE.BufferAttribute(colors,3));
+    geo.setIndex(idx);
+    const mat=new THREE.MeshLambertMaterial({vertexColors:true, side:THREE.DoubleSide});
+    this.terrain=new THREE.Mesh(geo,mat); this.terrain.receiveShadow=true;
+    this.tPos=geo.attributes.position; this.scene.add(this.terrain);
+  },
+  updateTerrain(){
+    const arr=this.tPos.array, rows=CONFIG.NZ+1, cols=CONFIG.NX+1, bx=player.x;
+    for(let i=0;i<cols;i++){ const y=hAt(bx+this.tLocalX[i]);
+      for(let j=0;j<rows;j++) arr[(i*rows+j)*3+1]=y; }
+    this.tPos.needsUpdate=true; this.terrain.geometry.computeVertexNormals();
+    this.terrain.position.x=bx;
+  },
 
-function drawParticles(camX){
-  for(const p of Particles.list){
-    ctx.globalAlpha=clamp(p.life/p.max,0,1);
-    ctx.fillStyle=p.col;
-    ctx.fillRect(p.wx-camX, sy(p.wy), p.size, p.size);
-  }
-  ctx.globalAlpha=1;
-}
+  tube(a,b,rad,mat){
+    const dir=new THREE.Vector3().subVectors(b,a), len=dir.length();
+    const m=new THREE.Mesh(new THREE.CylinderGeometry(rad,rad,len,8),mat);
+    m.castShadow=true; m.position.copy(a).add(b).multiplyScalar(0.5);
+    m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),dir.clone().normalize());
+    return m;
+  },
+  buildBike(){
+    const g=new THREE.Group();
+    const R=CONFIG.wheelRadius, HW=CONFIG.wheelBase/2;
+    const tireMat=new THREE.MeshLambertMaterial({color:0x16161a});
+    const rimMat=new THREE.MeshLambertMaterial({color:0xc6ced6});
+    const frameMat=new THREE.MeshLambertMaterial({color:0xe8453a});
+    const darkMat=new THREE.MeshLambertMaterial({color:0x232831});
+    const jerseyMat=new THREE.MeshLambertMaterial({color:0xff5a3c});
+    const skinMat=new THREE.MeshLambertMaterial({color:0xf0c9a0});
+    const helmMat=new THREE.MeshLambertMaterial({color:0x2bd1c4});
+    const V=(x,y,z)=>new THREE.Vector3(x,y,z||0);
 
-function drawBike(camX){
-  const x=riderScreenX, y=sy(player.ry);
-  const r=CONFIG.wheelRadius, hw=CONFIG.wheelBase/2;
-  const cr=player.crouch;                       // crouch (+ down, - extend)
+    // wheels (torus in xy-plane, axis z)
+    for(const wx of [-HW,HW]){
+      const w=new THREE.Group();
+      const tire=new THREE.Mesh(new THREE.TorusGeometry(R,0.085,10,22),tireMat); tire.castShadow=true;
+      const rim=new THREE.Mesh(new THREE.TorusGeometry(R-0.06,0.02,8,22),rimMat);
+      const hub=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.12,8),rimMat); hub.rotation.x=Math.PI/2;
+      // a few spokes
+      for(let k=0;k<4;k++){ const sp=new THREE.Mesh(new THREE.BoxGeometry(0.015,(R-0.06)*2,0.015),rimMat); sp.rotation.z=k*Math.PI/4; w.add(sp); }
+      w.add(tire,rim,hub); w.position.set(wx,R,0); g.add(w); this.wheels.push(w);
+    }
+    // frame
+    const rearHub=V(-HW,R), frontHub=V(HW,R), bb=V(0,R-0.06), seat=V(-0.4,R+0.55), head=V(0.5,R+0.4), bars=V(0.6,R+0.62);
+    g.add(this.tube(rearHub,bb,0.04,frameMat));
+    g.add(this.tube(bb,seat,0.04,frameMat));
+    g.add(this.tube(seat,head,0.04,frameMat));
+    g.add(this.tube(head,bb,0.04,frameMat));
+    g.add(this.tube(head,frontHub,0.035,darkMat));
+    g.add(this.tube(rearHub,seat,0.035,frameMat));
+    g.add(this.tube(head,bars,0.03,darkMat));
+    const barbar=new THREE.Mesh(new THREE.CylinderGeometry(0.028,0.028,0.5,8),darkMat); barbar.position.copy(bars); g.add(barbar);
+    const saddle=new THREE.Mesh(new THREE.BoxGeometry(0.28,0.06,0.16),darkMat); saddle.position.copy(seat).add(V(0,0.05,0)); g.add(saddle);
 
-  // ground shadow (skip when high in the air)
-  const gE=Terrain.elevAt(player.x);
-  const airH=player.ry-gE;
-  if(airH<260){
-    const a=clamp(1-airH/260,0,1)*0.28;
-    ctx.fillStyle="rgba(0,0,0,"+a+")";
-    ctx.beginPath(); ctx.ellipse(x, sy(gE)+3, hw*1.1, 6, 0, 0, TAU); ctx.fill();
-  }
+    // rider (sub-group so we can crouch it)
+    const rg=new THREE.Group();
+    const hips=V(-0.18,R+0.62), chest=V(0.12,R+1.12), neck=V(0.2,R+1.32), headC=V(0.3,R+1.5);
+    rg.add(this.tube(hips,chest,0.11,jerseyMat));     // torso
+    rg.add(this.tube(chest,neck,0.05,skinMat));       // neck
+    for(const dz of [0.13,-0.13]){                    // arms
+      rg.add(this.tube(V(chest.x,chest.y,dz),V((chest.x+bars.x)/2+0.02,(chest.y+bars.y)/2+0.08,dz),0.045,jerseyMat));
+      rg.add(this.tube(V((chest.x+bars.x)/2+0.02,(chest.y+bars.y)/2+0.08,dz),V(bars.x,bars.y,dz),0.04,skinMat));
+    }
+    for(const dz of [0.12,-0.12]){                    // legs to cranks
+      const foot=V(0.0,R-0.02,dz), knee=V(-0.05,R+0.32,dz);
+      rg.add(this.tube(V(hips.x,hips.y,dz),knee,0.06,darkMat));
+      rg.add(this.tube(knee,foot,0.05,darkMat));
+    }
+    const head3=new THREE.Mesh(new THREE.SphereGeometry(0.16,16,14),helmMat); head3.castShadow=true;
+    head3.position.copy(headC); rg.add(head3);
+    const visor=new THREE.Mesh(new THREE.BoxGeometry(0.14,0.06,0.26),new THREE.MeshLambertMaterial({color:0x14323a}));
+    visor.position.copy(headC).add(V(0.13,-0.01,0)); rg.add(visor);
+    rg.traverse(o=>{ if(o.isMesh)o.castShadow=true; });
+    this.riderGroup=rg; g.add(rg);
 
-  ctx.save();
-  ctx.translate(x,y);
-  ctx.rotate(-player.angle*DEG);                // nose-up = CCW on screen
+    g.traverse(o=>{ if(o.isMesh)o.castShadow=true; });
+    this.bike=g; this.scene.add(g);
+  },
+  updateBike(){
+    const b=this.bike; b.position.set(player.x, player.ry, 0);
+    b.rotation.z=player.angle*DEG;
+    for(const w of this.wheels) w.rotation.z=wheelSpin;
+    this.riderGroup.position.y=-player.crouch*CONFIG.crouchDrop;
+  },
 
-  const OUT="#16181d";
-  const ca=wheelAngle;
-  const pedal = ph => [bb[0]+Math.cos(ca+ph)*9, bb[1]+Math.sin(ca+ph)*9];
+  buildTrees(){
+    const trunkMat=new THREE.MeshLambertMaterial({color:0x5b3b22});
+    const leafMat=new THREE.MeshLambertMaterial({color:0x357a32});
+    const leafMat2=new THREE.MeshLambertMaterial({color:0x4a9540});
+    const trunkGeo=new THREE.CylinderGeometry(0.16,0.2,0.9,6);
+    const coneGeo=new THREE.ConeGeometry(0.95,1.7,7), coneGeo2=new THREE.ConeGeometry(0.65,1.2,7);
+    for(let i=0;i<26;i++){
+      const t=new THREE.Group();
+      const tr=new THREE.Mesh(trunkGeo,trunkMat); tr.position.y=0.45; t.add(tr);
+      const c1=new THREE.Mesh(coneGeo,leafMat); c1.position.y=1.45; c1.castShadow=true;
+      const c2=new THREE.Mesh(coneGeo2,leafMat2); c2.position.y=2.15; c2.castShadow=true;
+      t.add(c1,c2);
+      const s=rand(0.8,1.7); t.scale.setScalar(s);
+      t.userData.x = player.x + rand(-CONFIG.spanBack, CONFIG.spanFront);
+      t.userData.z = -(5+Math.random()*13);
+      this.trees.push(t); this.scene.add(t);
+    }
+  },
+  updateTrees(){
+    for(const t of this.trees){
+      if(t.userData.x < player.x-CONFIG.spanBack){ t.userData.x=player.x+CONFIG.spanFront+rand(0,8); t.userData.z=-(5+Math.random()*13); t.scale.setScalar(rand(0.8,1.7)); }
+      t.position.set(t.userData.x, hAt(t.userData.x)-0.2, t.userData.z);
+    }
+  },
 
-  // ---- wheels ----
-  for(const wx of [-hw,hw]){
-    ctx.beginPath(); ctx.arc(wx,-r,r,0,TAU);                       // tyre
-    ctx.lineWidth=5; ctx.strokeStyle="#1b1b20"; ctx.stroke();
-    ctx.beginPath(); ctx.arc(wx,-r,r-3.2,0,TAU);                   // rim
-    ctx.lineWidth=2; ctx.strokeStyle="#d3dae0"; ctx.stroke();
-    ctx.lineWidth=1.4; ctx.strokeStyle="#aab3bb";                  // spokes
-    for(let k=0;k<6;k++){ const a=wheelAngle+k*TAU/6;
-      ctx.beginPath(); ctx.moveTo(wx,-r); ctx.lineTo(wx+Math.cos(a)*(r-3),-r+Math.sin(a)*(r-3)); ctx.stroke(); }
-    ctx.fillStyle="#8b949c"; ctx.beginPath(); ctx.arc(wx,-r,2.6,0,TAU); ctx.fill();
-  }
+  buildMountains(){
+    const g=new THREE.Group();
+    const mat=new THREE.MeshLambertMaterial({color:0x8fa6cf});
+    for(let i=0;i<10;i++){
+      const h=rand(12,24), m=new THREE.Mesh(new THREE.ConeGeometry(rand(8,15),h,5),mat);
+      m.position.set(rand(-50,120), h/2-6, -58+rand(-8,8)); g.add(m);
+    }
+    this.mountains=g; this.scene.add(g);
+  },
 
-  // ---- key points ----
-  const bb=[-2,-r+2];                       // bottom bracket
-  const seat=[-15,-r-15+cr*4];              // saddle
-  const head=[hw-9,-r-13];                  // head tube top
-  const bars=[hw-1,-r-22];                  // handlebars
+  buildDust(){
+    this.dustGeo=new THREE.SphereGeometry(0.12,5,4);
+    this.dustMat=new THREE.MeshLambertMaterial({color:0xb98a55});
+  },
+  spawnDust(power){
+    const n=Math.min(6,Math.ceil(power));
+    for(let i=0;i<n;i++){
+      if(this.dust.length>120)break;
+      const m=new THREE.Mesh(this.dustGeo,this.dustMat);
+      m.position.set(player.x-0.4, player.ry+0.15, rand(-0.3,0.3));
+      m.userData={ vx:rand(-2,-5)*0.4*power, vy:rand(1,4)*0.3*power, vz:rand(-1,1), life:rand(0.3,0.7), max:0.7 };
+      this.dust.push(m); this.scene.add(m);
+    }
+  },
+  updateDust(dt){
+    for(let i=this.dust.length-1;i>=0;i--){ const m=this.dust[i], u=m.userData;
+      u.life-=dt; if(u.life<=0){ this.scene.remove(m); this.dust.splice(i,1); continue; }
+      u.vy-=9*dt; m.position.x+=u.vx*dt; m.position.y+=u.vy*dt; m.position.z+=u.vz*dt;
+      const s=clamp(u.life/u.max,0.1,1); m.scale.setScalar(s);
+    }
+  },
 
-  // ---- frame ----
-  strokePath([[-hw,-r],bb,seat],6,"#e8453a",OUT);     // chainstay + seat tube
-  strokePath([seat,head,bb],6,"#e8453a",OUT);         // top + down tube
-  strokePath([head,[hw,-r]],5,"#2a2f3a",OUT);         // fork
-  strokePath([[-hw,-r],seat],5,"#c63a30",OUT);        // seatstay
-  // saddle + handlebars
-  ctx.fillStyle="#1b1f27"; ctx.beginPath(); ctx.ellipse(seat[0],seat[1]-2,7,3,0,0,TAU); ctx.fill();
-  strokePath([head,bars,[bars[0]-7,bars[1]-1]],4,"#2a2f3a",OUT);
-
-  // ---- cranks + pedals ----
-  for(const ph of [0,Math.PI]){ const p=pedal(ph);
-    strokePath([bb,p],3,"#3a4048",OUT);
-    ctx.fillStyle="#15171c"; ctx.fillRect(p[0]-3,p[1]-1.5,6,3); }
-
-  // ---- rider (far limbs first for depth) ----
-  const hip=[seat[0]+6, seat[1]-3+cr*CONFIG.crouchDepth*0.5];
-  const chest=[hip[0]+15, hip[1]-20+cr*CONFIG.crouchDepth];
-  const neck=[chest[0]+4, chest[1]-6];
-  const headC=[neck[0]+5, neck[1]-9];
-  function leg(ph,col){ const p=pedal(ph); const knee=[(hip[0]+p[0])/2+6,(hip[1]+p[1])/2-1];
-    strokePath([hip,knee,p],6,col,"#171b22");
-    ctx.fillStyle="#15171c"; ctx.fillRect(p[0]-4,p[1]-2,8,4); }   // shoe
-  function arm(col){ const elbow=[(chest[0]+bars[0])/2+1,(chest[1]+bars[1])/2+7];
-    strokePath([chest,elbow,bars],5,col,"#9c2c1a"); }
-
-  leg(Math.PI,"#252c38");                              // far leg
-  arm("#d8462e");                                      // far arm
-  strokePath([hip,chest],10,"#ff5a3c","#b83218");      // torso/jersey
-  leg(0,"#2b3340");                                    // near leg
-  arm("#ff7a5c");                                      // near arm
-  ctx.fillStyle="#1b1f27"; ctx.beginPath(); ctx.arc(bars[0],bars[1],3,0,TAU); ctx.fill(); // glove
-  strokePath([chest,neck],5,"#f0c9a0","#cba27a");      // neck
-
-  // ---- full-face helmet ----
-  ctx.save(); ctx.translate(headC[0],headC[1]);
-  ctx.lineWidth=2; ctx.strokeStyle=OUT;
-  ctx.fillStyle="#2bd1c4"; ctx.beginPath(); ctx.arc(0,0,8,0,TAU); ctx.fill(); ctx.stroke();   // shell
-  ctx.fillStyle="#23b3a7"; ctx.beginPath();                                                   // chin guard
-  ctx.moveTo(-7,2); ctx.quadraticCurveTo(-2,11,8,5); ctx.lineTo(8,1); ctx.closePath(); ctx.fill(); ctx.stroke();
-  ctx.fillStyle="#15323a"; ctx.beginPath();                                                   // visor/goggles
-  ctx.moveTo(2,-3); ctx.quadraticCurveTo(10,-2,9,3); ctx.quadraticCurveTo(4,3,2,1); ctx.closePath(); ctx.fill();
-  ctx.fillStyle="#1b1f27"; ctx.beginPath();                                                   // peak
-  ctx.moveTo(-3,-6); ctx.lineTo(10,-8); ctx.lineTo(9,-4); ctx.lineTo(-2,-3); ctx.closePath(); ctx.fill();
-  ctx.restore();
-
-  ctx.restore();
-}
-
-/* ---- HUD ---- */
-function roundRect(x,y,w,h,r){ ctx.beginPath();
-  ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
-  ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
-
-function drawHUD(){
-  // panel
-  ctx.fillStyle="rgba(17,36,58,0.55)"; roundRect(12,12,190,66,12); ctx.fill();
-  ctx.fillStyle="#fff"; ctx.textAlign="left";
-  ctx.font="bold 26px -apple-system,system-ui,sans-serif";
-  ctx.fillText(score.toString(), 24, 44);
-  ctx.font="bold 12px -apple-system,system-ui,sans-serif"; ctx.fillStyle="rgba(255,255,255,.7)";
-  ctx.fillText("SCORE", 24, 58);
-  ctx.textAlign="right"; ctx.fillStyle="#fff"; ctx.font="bold 18px -apple-system,system-ui,sans-serif";
-  ctx.fillText(distanceM+" m", 190, 40);
-  ctx.font="bold 11px -apple-system,system-ui,sans-serif"; ctx.fillStyle="rgba(255,255,255,.7)";
-  ctx.fillText("BEST "+best, 190, 58); ctx.fillText("DIST", 190, 70);
-
-  // pump charge bar (bottom-left)
-  const bw=150,bh=12,bx=18,by=H-32;
-  ctx.fillStyle="rgba(17,36,58,0.5)"; roundRect(bx-4,by-4,bw+8,bh+8,8); ctx.fill();
-  ctx.fillStyle="rgba(255,255,255,.18)"; roundRect(bx,by,bw,bh,6); ctx.fill();
-  const frac=player?player.pumpCharge/CONFIG.maxPumpCharge:0;
-  ctx.fillStyle = frac>0.85?"#7CFC9A":"#ffd24a";
-  roundRect(bx,by,bw*frac,bh,6); ctx.fill();
-  ctx.fillStyle="rgba(255,255,255,.85)"; ctx.textAlign="left";
-  ctx.font="bold 11px -apple-system,system-ui,sans-serif"; ctx.fillText("PUMP", bx, by-8);
-
-  // combo
-  if(combo>1){ ctx.textAlign="right"; ctx.fillStyle="#ffd24a";
-    ctx.font="bold 22px -apple-system,system-ui,sans-serif";
-    ctx.fillText("COMBO x"+(1+(combo-1)*CONFIG.comboStep).toFixed(1), W-16, H-22); }
-
-  // live rotation readout while airborne
-  if(player && !player.onGround){
-    ctx.textAlign="center"; ctx.fillStyle="rgba(255,255,255,.95)";
-    ctx.font="bold 30px -apple-system,system-ui,sans-serif";
-    ctx.fillText(Math.round(Math.abs(player.totalRotation))+"°", W/2, 48);
-  }
-
-  // floating score popups (world-anchored)
-  const camX=player?player.x-riderScreenX:0;
-  for(const p of popups){ ctx.globalAlpha=clamp(p.t,0,1); ctx.textAlign="center";
-    ctx.fillStyle=p.col; ctx.font="bold 22px -apple-system,system-ui,sans-serif";
-    ctx.fillText(p.txt, p.wx-camX, sy(p.wy)); }
-  ctx.globalAlpha=1;
-
-  // trick banner
-  if(flipFlash.t>0){ ctx.textAlign="center"; ctx.globalAlpha=clamp(flipFlash.t/0.4,0,1);
-    ctx.font="900 38px -apple-system,system-ui,sans-serif";
-    ctx.lineWidth=5; ctx.strokeStyle="rgba(17,36,58,.9)";
-    ctx.strokeText(flipFlash.txt, W/2, H*0.28);
-    ctx.fillStyle=flipFlash.col; ctx.fillText(flipFlash.txt, W/2, H*0.28);
-    ctx.globalAlpha=1; }
-}
+  sync(dt){
+    this.updateTerrain(); this.updateBike(); this.updateTrees(); this.updateDust(dt);
+    if(this.mountains) this.mountains.position.x=player.x;
+    // camera
+    camY=lerp(camY, player.ry*0.5, 1-Math.exp(-CONFIG.camLerp*dt));
+    let sx=0,sy=0; if(shake>0){ sx=(Math.random()-0.5)*shake; sy=(Math.random()-0.5)*shake; }
+    this.camera.position.set(player.x+CONFIG.camOffX+sx, camY+CONFIG.camOffY+sy, CONFIG.camOffZ);
+    this.camera.lookAt(player.x+CONFIG.lookAheadX, camY+CONFIG.lookY, 0);
+    this.sun.position.set(player.x+10, 32, 16);
+    this.sun.target.position.set(player.x, player.ry, 0); this.sun.target.updateMatrixWorld();
+    this.renderer.render(this.scene,this.camera);
+  },
+};
 
 /* ============================================================================
  *  MAIN LOOP
  * ==========================================================================*/
-let lastT=0, camY=0;
+let lastT=0;
 function frame(now){
-  if(!lastT) lastT=now;
-  let dt=(now-lastT)/1000; lastT=now;
-  if(dt>CONFIG.maxDt) dt=CONFIG.maxDt;
-  update(dt);
-  if(state!=="start") render();
   requestAnimationFrame(frame);
+  if(!lastT)lastT=now; let dt=(now-lastT)/1000; lastT=now; if(dt>1/30)dt=1/30;
+  update(dt);
+  Scene.sync(dt);
+  updateHUD();
 }
-document.addEventListener("visibilitychange",()=>{ if(!document.hidden) lastT=0; });
-requestAnimationFrame(frame);
+document.addEventListener("visibilitychange",()=>{ if(!document.hidden)lastT=0; });
 
 /* ============================================================================
- *  STATE / START / PERMISSION / RESTART
+ *  BOOT / START / PERMISSION
  * ==========================================================================*/
-let state="start";
 const startScreen=document.getElementById("startScreen");
 const gameOver=document.getElementById("gameOver");
 const muteBtn=document.getElementById("muteBtn");
 
-loadBest();
-
-function beginPlay(){
-  resetGame(); state="play";
-  startScreen.style.display="none"; gameOver.style.display="none";
-  muteBtn.style.display="block";
+function boot(){
+  try{
+    loadBest(); resetGame(); Scene.init(); bindInput(); requestAnimationFrame(frame);
+  }catch(e){ fail(e && e.message ? e.message : String(e)); }
 }
-async function requestMotionThenStart(){
-  Sound.init(); if(Sound.ac&&Sound.ac.state==="suspended") Sound.ac.resume();
+function fail(msg){
+  startScreen.style.display="none";
+  const err=document.getElementById("err"); err.style.display="flex";
+  if(msg) document.getElementById("errMsg").textContent="3D failed to start: "+msg+" — check your connection and reload.";
+}
+function beginPlay(){ resetGame(); state="play"; startScreen.style.display="none"; gameOver.style.display="none"; muteBtn.style.display="block"; }
+async function startTapped(){
+  Sound.init(); if(Sound.ac&&Sound.ac.state==="suspended")Sound.ac.resume();
   try{
     if(typeof DeviceOrientationEvent!=="undefined" && typeof DeviceOrientationEvent.requestPermission==="function"){
-      const res=await DeviceOrientationEvent.requestPermission();
-      if(res==="granted") window.addEventListener("deviceorientation",onOrient);
-    } else if(typeof DeviceOrientationEvent!=="undefined"){
-      window.addEventListener("deviceorientation",onOrient);
-    }
-  }catch(e){ /* fall back to drag */ }
+      const res=await DeviceOrientationEvent.requestPermission(); if(res==="granted")window.addEventListener("deviceorientation",onOrient);
+    } else if(typeof DeviceOrientationEvent!=="undefined"){ window.addEventListener("deviceorientation",onOrient); }
+  }catch(e){}
   beginPlay();
 }
-document.getElementById("startBtn").addEventListener("click",requestMotionThenStart);
+document.getElementById("startBtn").addEventListener("click",startTapped);
 document.getElementById("restartBtn").addEventListener("click",beginPlay);
 muteBtn.addEventListener("click",()=>{ Sound.muted=!Sound.muted; muteBtn.textContent=Sound.muted?"🔇":"🔊"; });
 </script>
+<button id="muteBtn" aria-label="Toggle sound">🔊</button>
+<script src="https://unpkg.com/three@0.149.0/build/three.min.js" onload="boot()" onerror="fail('could not download Three.js')"></script>
 </body>
 </html>
