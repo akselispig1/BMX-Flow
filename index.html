@@ -546,84 +546,154 @@ function render(){
   drawBike(camX);
   ctx.restore();
 
+  drawVignette();
   drawHUD();
 }
 
+// Thick outlined stroke through a list of points — gives the cartoon look.
+function strokePath(pts,w,col,outline){
+  ctx.lineCap="round"; ctx.lineJoin="round";
+  ctx.beginPath(); ctx.moveTo(pts[0][0],pts[0][1]);
+  for(let i=1;i<pts.length;i++) ctx.lineTo(pts[i][0],pts[i][1]);
+  if(outline){ ctx.lineWidth=w+3.5; ctx.strokeStyle=outline; ctx.stroke(); }
+  ctx.lineWidth=w; ctx.strokeStyle=col; ctx.stroke();
+}
+function drawVignette(){
+  const g=ctx.createRadialGradient(W/2,H*0.45,Math.min(W,H)*0.42,W/2,H*0.45,Math.max(W,H)*0.78);
+  g.addColorStop(0,"rgba(0,0,0,0)"); g.addColorStop(1,"rgba(10,20,35,0.26)");
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+}
+function hash2(i){ const s=Math.sin(i*43.137+11.7)*7219.31; return s-Math.floor(s); }
+
 function drawSky(){
-  const g=ctx.createLinearGradient(0,-30,0,H);
-  g.addColorStop(0,"#3f86c9"); g.addColorStop(0.55,"#7db6e6"); g.addColorStop(1,"#cfeaff");
+  const g=ctx.createLinearGradient(0,-40,0,H);
+  g.addColorStop(0,"#2c6aac"); g.addColorStop(0.4,"#5e9ed6");
+  g.addColorStop(0.78,"#a6d3ef"); g.addColorStop(1,"#e2f2fb");
   ctx.fillStyle=g; ctx.fillRect(-40,-40,W+80,H+80);
-  // sun
-  ctx.fillStyle="rgba(255,243,196,0.95)";
-  ctx.beginPath(); ctx.arc(W*0.8,H*0.2,46,0,TAU); ctx.fill();
-  ctx.fillStyle="rgba(255,243,196,0.25)";
-  ctx.beginPath(); ctx.arc(W*0.8,H*0.2,72,0,TAU); ctx.fill();
+  // sun + soft glow
+  const sunX=W*0.8, sunY=H*0.19;
+  const rg=ctx.createRadialGradient(sunX,sunY,8,sunX,sunY,190);
+  rg.addColorStop(0,"rgba(255,248,214,0.95)");
+  rg.addColorStop(0.32,"rgba(255,240,188,0.45)");
+  rg.addColorStop(1,"rgba(255,240,188,0)");
+  ctx.fillStyle=rg; ctx.fillRect(sunX-200,sunY-200,400,400);
+  ctx.fillStyle="#fff6cf"; ctx.beginPath(); ctx.arc(sunX,sunY,38,0,TAU); ctx.fill();
 }
 
 function drawParallax(camX){
+  // distant hazy mountains
+  drawRidge(camX*0.10, 0.0011, 130, H*0.44, "#7e92c0", "#a6b7da");
+  drawRidge(camX*0.18, 0.0020, 95,  H*0.50, "#90a6cf", "#bccbe6");
   // clouds
-  ctx.fillStyle="rgba(255,255,255,0.9)";
+  ctx.fillStyle="rgba(255,255,255,0.93)";
   for(const c of Scenery.clouds){
-    c.x-=c.sp*0.016; if(c.x<camX*0.1-200) c.x=camX*0.1+W+rand(100,400);
-    const px=c.x-camX*0.1, py=c.y; const r=18*c.s;
-    ctx.beginPath();
-    ctx.arc(px,py,r,0,TAU); ctx.arc(px+r,py+4,r*0.8,0,TAU);
-    ctx.arc(px-r,py+5,r*0.7,0,TAU); ctx.arc(px+r*0.4,py-r*0.6,r*0.7,0,TAU);
-    ctx.fill();
+    c.x-=c.sp*0.016; if(c.x<camX*0.1-280) c.x=camX*0.1+W+rand(120,440);
+    drawCloud(c.x-camX*0.1, c.y, 17*c.s);
   }
-  // far hills
-  drawHillBand(camX*0.25, 0.0016, 70, H*0.52, "#9bb7d6");
-  // mid hills
-  drawHillBand(camX*0.45, 0.0026, 95, H*0.62, "#7bab63");
-  // near hills
-  drawHillBand(camX*0.7, 0.004, 120, H*0.72, "#5d9249");
+  // green, tree-covered hill bands
+  drawHillBand(camX*0.40, 0.0026, 92,  H*0.60, "#5d9c4c", 150, 1.05, "#3f7a36", "#7dc05f");
+  drawHillBand(camX*0.66, 0.0041, 128, H*0.73, "#4a8a3c", 118, 1.5,  "#346a2b", "#6cb04e");
 }
-function drawHillBand(scroll, freq, amp, yBase, col){
-  ctx.fillStyle=col; ctx.beginPath(); ctx.moveTo(-20,H);
-  for(let sx=-20;sx<=W+20;sx+=14){
+function hillY(wx,freq,amp){ return Math.sin(wx*freq)*amp + Math.sin(wx*freq*2.3+0.7)*amp*0.32; }
+function drawRidge(scroll, freq, amp, yBase, top, bot){
+  ctx.beginPath(); ctx.moveTo(-20,H);
+  for(let sx=-20;sx<=W+20;sx+=12){
     const wx=sx+scroll;
-    const y=yBase - (Scenery.hill(wx,freq,amp,0));
+    const y=yBase - (Math.sin(wx*freq)*amp + Math.sin(wx*freq*2.7+1.3)*amp*0.4 + Math.sin(wx*freq*0.5)*amp*0.5);
     ctx.lineTo(sx,y);
   }
-  ctx.lineTo(W+20,H); ctx.closePath(); ctx.fill();
+  ctx.lineTo(W+20,H); ctx.closePath();
+  const g=ctx.createLinearGradient(0,yBase-amp,0,yBase+amp);
+  g.addColorStop(0,top); g.addColorStop(1,bot);
+  ctx.fillStyle=g; ctx.fill();
+}
+function drawCloud(px,py,r){
+  ctx.beginPath();
+  ctx.arc(px,py,r,0,TAU); ctx.arc(px+r*1.1,py+5,r*0.82,0,TAU);
+  ctx.arc(px-r*1.0,py+6,r*0.7,0,TAU); ctx.arc(px+r*0.3,py-r*0.7,r*0.72,0,TAU);
+  ctx.arc(px+r*1.95,py+7,r*0.55,0,TAU);
+  ctx.fill();
+}
+function drawHillBand(scroll, freq, amp, yBase, col, treeSpace, treeScale, treeDark, treeLite){
+  // hill body
+  ctx.beginPath(); ctx.moveTo(-20,H);
+  for(let sx=-20;sx<=W+20;sx+=12){ const wx=sx+scroll; ctx.lineTo(sx, yBase-hillY(wx,freq,amp)); }
+  ctx.lineTo(W+20,H); ctx.closePath(); ctx.fillStyle=col; ctx.fill();
+  // trees on the ridge (deterministic in world space -> no flicker)
+  const k0=Math.floor((scroll-120)/treeSpace), k1=Math.ceil((scroll+W+120)/treeSpace);
+  for(let k=k0;k<=k1;k++){
+    const h=hash2(k); const tw=k*treeSpace+(h-0.5)*treeSpace*0.6;
+    const sx=tw-scroll, y=yBase-hillY(tw,freq,amp);
+    drawTree(sx, y+5, treeScale*(0.8+h*0.55), col, treeDark, treeLite);
+  }
+}
+function drawTree(px,baseY,sc,mid,dark,lite){
+  ctx.fillStyle="#4a3320"; ctx.fillRect(px-1.6*sc, baseY-10*sc, 3.2*sc, 12*sc);
+  ctx.fillStyle=dark;                                   // base foliage
+  ctx.beginPath();
+  ctx.arc(px, baseY-16*sc, 9*sc,0,TAU);
+  ctx.arc(px-6.5*sc, baseY-11*sc, 6.8*sc,0,TAU);
+  ctx.arc(px+6.5*sc, baseY-11*sc, 6.8*sc,0,TAU);
+  ctx.fill();
+  ctx.fillStyle=lite;                                   // sunlit top-left
+  ctx.beginPath();
+  ctx.arc(px-3*sc, baseY-19*sc, 5.5*sc,0,TAU);
+  ctx.arc(px+3*sc, baseY-17*sc, 4.5*sc,0,TAU);
+  ctx.fill();
 }
 
 function drawTerrain(camX){
-  const step=7;
+  const step=6;
   const tD=CONFIG.tiltDepth, tS=CONFIG.tiltSkew;
+  const surf = s => sy(Terrain.elevAt(s+camX));   // near contact line at screen x
 
-  // Front (cut) dirt face: from the near contact line down to the bottom.
+  // Front (cut) dirt face.
   ctx.beginPath(); ctx.moveTo(-step,H+40);
-  for(let s=-step;s<=W+step;s+=step) ctx.lineTo(s,sy(Terrain.elevAt(s+camX)));
+  for(let s=-step;s<=W+step;s+=step) ctx.lineTo(s,surf(s));
   ctx.lineTo(W+step,H+40); ctx.closePath();
   const g=ctx.createLinearGradient(0,baseLine-CONFIG.maxElev,0,H);
-  g.addColorStop(0,"#a06d3c"); g.addColorStop(1,"#6f4724");
+  g.addColorStop(0,"#9c6936"); g.addColorStop(0.5,"#7c5026"); g.addColorStop(1,"#5a3819");
   ctx.fillStyle=g; ctx.fill();
 
-  // Top face (the rideable surface seen slightly from above): a band between
-  // the near contact line and a copy pushed up+back -> reads as 3D depth.
-  ctx.beginPath();
-  for(let s=-step;s<=W+step;s+=step){ const p=sy(Terrain.elevAt(s+camX)); s===-step?ctx.moveTo(s,p):ctx.lineTo(s,p); }
-  for(let s=W+step;s>=-step;s-=step){ const p=sy(Terrain.elevAt(s+camX))-tD; ctx.lineTo(s+tS,p); }
-  ctx.closePath();
-  const gt=ctx.createLinearGradient(0,baseLine-CONFIG.maxElev-tD,0,baseLine-CONFIG.maxElev+40);
-  gt.addColorStop(0,"#8fd357"); gt.addColorStop(1,"#5fa838");
-  ctx.fillStyle="#6cba3f"; ctx.fill();
+  // Dirt strata bands (clipped to the dirt) for texture.
+  ctx.save();
+  ctx.beginPath(); ctx.moveTo(-step,H+40);
+  for(let s=-step;s<=W+step;s+=step) ctx.lineTo(s,surf(s));
+  ctx.lineTo(W+step,H+40); ctx.closePath(); ctx.clip();
+  ctx.strokeStyle="rgba(64,40,18,0.22)"; ctx.lineWidth=3; ctx.lineJoin="round";
+  for(let band=24; band<240; band+=30){
+    ctx.beginPath();
+    for(let s=-step;s<=W+step;s+=step){ const p=surf(s)+band; (s===-step?ctx.moveTo:ctx.lineTo).call(ctx,s,p); }
+    ctx.stroke();
+  }
+  ctx.restore();
 
-  // Highlight on the back edge + dark line on the near edge for definition.
+  // Top (rideable) face — sunlit dirt, pushed up+back for the 3/4 look.
   ctx.beginPath();
-  for(let s=-step;s<=W+step;s+=step){ const p=sy(Terrain.elevAt(s+camX))-tD; (s===-step?ctx.moveTo:ctx.lineTo).call(ctx,s+tS,p); }
-  ctx.lineWidth=2; ctx.strokeStyle="rgba(255,255,255,0.25)"; ctx.lineJoin="round"; ctx.stroke();
-  ctx.beginPath();
-  for(let s=-step;s<=W+step;s+=step){ const p=sy(Terrain.elevAt(s+camX)); (s===-step?ctx.moveTo:ctx.lineTo).call(ctx,s,p); }
-  ctx.lineWidth=2.5; ctx.strokeStyle="#43702a"; ctx.lineJoin="round"; ctx.stroke();
+  for(let s=-step;s<=W+step;s+=step){ const p=surf(s); (s===-step?ctx.moveTo:ctx.lineTo).call(ctx,s,p); }
+  for(let s=W+step;s>=-step;s-=step){ ctx.lineTo(s+tS, surf(s)-tD); }
+  ctx.closePath(); ctx.fillStyle="#bd8a4f"; ctx.fill();
 
-  // sparse pebbles on the front face for texture & speed read
-  ctx.fillStyle="rgba(70,45,22,0.35)";
-  const start=Math.floor(camX/70)*70;
-  for(let wx=start; wx<camX+W; wx+=70){
-    const e=Terrain.elevAt(wx); const px=wx-camX;
-    ctx.fillRect(px, sy(e)+16, 8, 3);
+  // Edge definition: bright back lip + dark near lip.
+  ctx.beginPath();
+  for(let s=-step;s<=W+step;s+=step){ const p=surf(s)-tD; (s===-step?ctx.moveTo:ctx.lineTo).call(ctx,s+tS,p); }
+  ctx.lineWidth=2.5; ctx.strokeStyle="#dcab66"; ctx.lineJoin="round"; ctx.stroke();
+  ctx.beginPath();
+  for(let s=-step;s<=W+step;s+=step){ const p=surf(s); (s===-step?ctx.moveTo:ctx.lineTo).call(ctx,s,p); }
+  ctx.lineWidth=2.5; ctx.strokeStyle="#472c14"; ctx.lineJoin="round"; ctx.stroke();
+
+  // Deterministic surface detail: grass tufts on the lip, rocks on the face.
+  const startWx=Math.floor(camX/46)*46;
+  for(let wx=startWx; wx<camX+W+46; wx+=46){
+    const h=hash2(Math.floor(wx/46)+5000); const px=wx-camX, yTop=sy(Terrain.elevAt(wx));
+    if(h<0.45){
+      ctx.strokeStyle="#5aa336"; ctx.lineWidth=2; ctx.lineCap="round";
+      for(let b=-2;b<=2;b++){ ctx.beginPath(); ctx.moveTo(px+b*2.4, yTop); ctx.lineTo(px+b*2.4+(h-0.45)*8, yTop-6-Math.abs(b)*1.5); ctx.stroke(); }
+      ctx.lineCap="butt";
+    } else if(h<0.66){
+      ctx.fillStyle="#6e5c4a"; ctx.beginPath(); ctx.ellipse(px, yTop+20, 5, 3.4,0,0,TAU); ctx.fill();
+      ctx.fillStyle="#85715c"; ctx.beginPath(); ctx.ellipse(px-1, yTop+19, 2.5,1.6,0,0,TAU); ctx.fill();
+    }
   }
 }
 
@@ -654,71 +724,72 @@ function drawBike(camX){
   ctx.translate(x,y);
   ctx.rotate(-player.angle*DEG);                // nose-up = CCW on screen
 
+  const OUT="#16181d";
+  const ca=wheelAngle;
+  const pedal = ph => [bb[0]+Math.cos(ca+ph)*9, bb[1]+Math.sin(ca+ph)*9];
+
   // ---- wheels ----
-  ctx.lineWidth=4; ctx.strokeStyle="#15171c"; ctx.fillStyle="#222";
   for(const wx of [-hw,hw]){
-    ctx.beginPath(); ctx.arc(wx,-r,r,0,TAU); ctx.stroke();              // tyre
-    ctx.lineWidth=1.6; ctx.strokeStyle="#cfd6dd";
-    for(let k=0;k<5;k++){ const a=wheelAngle+k*TAU/5;                   // spokes
-      ctx.beginPath(); ctx.moveTo(wx,-r);
-      ctx.lineTo(wx+Math.cos(a)*(r-3),-r+Math.sin(a)*(r-3)); ctx.stroke(); }
-    ctx.fillStyle="#9aa3ab"; ctx.beginPath(); ctx.arc(wx,-r,2.4,0,TAU); ctx.fill();
-    ctx.lineWidth=4; ctx.strokeStyle="#15171c";
+    ctx.beginPath(); ctx.arc(wx,-r,r,0,TAU);                       // tyre
+    ctx.lineWidth=5; ctx.strokeStyle="#1b1b20"; ctx.stroke();
+    ctx.beginPath(); ctx.arc(wx,-r,r-3.2,0,TAU);                   // rim
+    ctx.lineWidth=2; ctx.strokeStyle="#d3dae0"; ctx.stroke();
+    ctx.lineWidth=1.4; ctx.strokeStyle="#aab3bb";                  // spokes
+    for(let k=0;k<6;k++){ const a=wheelAngle+k*TAU/6;
+      ctx.beginPath(); ctx.moveTo(wx,-r); ctx.lineTo(wx+Math.cos(a)*(r-3),-r+Math.sin(a)*(r-3)); ctx.stroke(); }
+    ctx.fillStyle="#8b949c"; ctx.beginPath(); ctx.arc(wx,-r,2.6,0,TAU); ctx.fill();
   }
 
-  // ---- frame (BMX-ish) ----
-  const bb=[-2,-r+3];            // bottom bracket
-  const seat=[-14,-r-16+cr*4];   // saddle
-  const head=[hw-8,-r-12];       // head tube top
-  const bars=[hw-2,-r-20];       // handlebars
-  ctx.lineWidth=4.5; ctx.strokeStyle="#e8453a"; ctx.lineJoin="round";
-  ctx.beginPath();
-  ctx.moveTo(-hw,-r); ctx.lineTo(bb[0],bb[1]);          // rear chainstay
-  ctx.lineTo(seat[0],seat[1]);                           // seat tube
-  ctx.lineTo(head[0],head[1]);                           // top tube
-  ctx.lineTo(bb[0],bb[1]);                               // down tube
-  ctx.moveTo(head[0],head[1]); ctx.lineTo(hw,-r);        // fork
-  ctx.moveTo(-hw,-r); ctx.lineTo(seat[0],seat[1]);       // seatstay
-  ctx.stroke();
-  // bars + seat
-  ctx.lineWidth=4; ctx.strokeStyle="#1b1f27";
-  ctx.beginPath(); ctx.moveTo(head[0],head[1]); ctx.lineTo(bars[0],bars[1]); ctx.stroke();
-  ctx.fillStyle="#1b1f27";
-  ctx.fillRect(seat[0]-5,seat[1]-3,11,4);
+  // ---- key points ----
+  const bb=[-2,-r+2];                       // bottom bracket
+  const seat=[-15,-r-15+cr*4];              // saddle
+  const head=[hw-9,-r-13];                  // head tube top
+  const bars=[hw-1,-r-22];                  // handlebars
 
-  // ---- cranks/pedals ----
-  const ca=wheelAngle*1.0;
-  ctx.strokeStyle="#1b1f27"; ctx.lineWidth=3;
-  for(const s of [0,Math.PI]){
-    const pa=ca+s;
-    ctx.beginPath(); ctx.moveTo(bb[0],bb[1]);
-    ctx.lineTo(bb[0]+Math.cos(pa)*9, bb[1]+Math.sin(pa)*9); ctx.stroke();
-  }
+  // ---- frame ----
+  strokePath([[-hw,-r],bb,seat],6,"#e8453a",OUT);     // chainstay + seat tube
+  strokePath([seat,head,bb],6,"#e8453a",OUT);         // top + down tube
+  strokePath([head,[hw,-r]],5,"#2a2f3a",OUT);         // fork
+  strokePath([[-hw,-r],seat],5,"#c63a30",OUT);        // seatstay
+  // saddle + handlebars
+  ctx.fillStyle="#1b1f27"; ctx.beginPath(); ctx.ellipse(seat[0],seat[1]-2,7,3,0,0,TAU); ctx.fill();
+  strokePath([head,bars,[bars[0]-7,bars[1]-1]],4,"#2a2f3a",OUT);
 
-  // ---- rider ----
-  const hip=[seat[0]+4,seat[1]-2+cr*CONFIG.crouchDepth*0.4];
-  const shldr=[hip[0]+14,hip[1]-22+cr*CONFIG.crouchDepth];
-  const headC=[shldr[0]+5,shldr[1]-11];
-  // legs (hip -> pedals)
-  ctx.lineWidth=6; ctx.strokeStyle="#2a2f3a"; ctx.lineCap="round";
-  for(const s of [0,Math.PI]){
-    const pa=ca+s, px=bb[0]+Math.cos(pa)*9, py=bb[1]+Math.sin(pa)*9;
-    const knee=[(hip[0]+px)/2+5, (hip[1]+py)/2-2];
-    ctx.beginPath(); ctx.moveTo(hip[0],hip[1]); ctx.lineTo(knee[0],knee[1]); ctx.lineTo(px,py); ctx.stroke();
-  }
-  // torso
-  ctx.lineWidth=8; ctx.strokeStyle="#ff5a3c";
-  ctx.beginPath(); ctx.moveTo(hip[0],hip[1]); ctx.lineTo(shldr[0],shldr[1]); ctx.stroke();
-  // arms (shoulder -> bars)
-  ctx.lineWidth=5; ctx.strokeStyle="#ff7a5c";
-  const elbow=[(shldr[0]+bars[0])/2, (shldr[1]+bars[1])/2+6];
-  ctx.beginPath(); ctx.moveTo(shldr[0],shldr[1]); ctx.lineTo(elbow[0],elbow[1]); ctx.lineTo(bars[0],bars[1]); ctx.stroke();
-  ctx.lineCap="butt";
-  // head + helmet
-  ctx.fillStyle="#f0c9a0"; ctx.beginPath(); ctx.arc(headC[0],headC[1],6.5,0,TAU); ctx.fill();
-  ctx.fillStyle="#2bd1c4"; ctx.beginPath();
-  ctx.arc(headC[0],headC[1],7.4,Math.PI*1.05,Math.PI*2.05); ctx.fill();
-  ctx.fillRect(headC[0]+3,headC[1]-2,6,3);   // visor
+  // ---- cranks + pedals ----
+  for(const ph of [0,Math.PI]){ const p=pedal(ph);
+    strokePath([bb,p],3,"#3a4048",OUT);
+    ctx.fillStyle="#15171c"; ctx.fillRect(p[0]-3,p[1]-1.5,6,3); }
+
+  // ---- rider (far limbs first for depth) ----
+  const hip=[seat[0]+6, seat[1]-3+cr*CONFIG.crouchDepth*0.5];
+  const chest=[hip[0]+15, hip[1]-20+cr*CONFIG.crouchDepth];
+  const neck=[chest[0]+4, chest[1]-6];
+  const headC=[neck[0]+5, neck[1]-9];
+  function leg(ph,col){ const p=pedal(ph); const knee=[(hip[0]+p[0])/2+6,(hip[1]+p[1])/2-1];
+    strokePath([hip,knee,p],6,col,"#171b22");
+    ctx.fillStyle="#15171c"; ctx.fillRect(p[0]-4,p[1]-2,8,4); }   // shoe
+  function arm(col){ const elbow=[(chest[0]+bars[0])/2+1,(chest[1]+bars[1])/2+7];
+    strokePath([chest,elbow,bars],5,col,"#9c2c1a"); }
+
+  leg(Math.PI,"#252c38");                              // far leg
+  arm("#d8462e");                                      // far arm
+  strokePath([hip,chest],10,"#ff5a3c","#b83218");      // torso/jersey
+  leg(0,"#2b3340");                                    // near leg
+  arm("#ff7a5c");                                      // near arm
+  ctx.fillStyle="#1b1f27"; ctx.beginPath(); ctx.arc(bars[0],bars[1],3,0,TAU); ctx.fill(); // glove
+  strokePath([chest,neck],5,"#f0c9a0","#cba27a");      // neck
+
+  // ---- full-face helmet ----
+  ctx.save(); ctx.translate(headC[0],headC[1]);
+  ctx.lineWidth=2; ctx.strokeStyle=OUT;
+  ctx.fillStyle="#2bd1c4"; ctx.beginPath(); ctx.arc(0,0,8,0,TAU); ctx.fill(); ctx.stroke();   // shell
+  ctx.fillStyle="#23b3a7"; ctx.beginPath();                                                   // chin guard
+  ctx.moveTo(-7,2); ctx.quadraticCurveTo(-2,11,8,5); ctx.lineTo(8,1); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.fillStyle="#15323a"; ctx.beginPath();                                                   // visor/goggles
+  ctx.moveTo(2,-3); ctx.quadraticCurveTo(10,-2,9,3); ctx.quadraticCurveTo(4,3,2,1); ctx.closePath(); ctx.fill();
+  ctx.fillStyle="#1b1f27"; ctx.beginPath();                                                   // peak
+  ctx.moveTo(-3,-6); ctx.lineTo(10,-8); ctx.lineTo(9,-4); ctx.lineTo(-2,-3); ctx.closePath(); ctx.fill();
+  ctx.restore();
 
   ctx.restore();
 }
