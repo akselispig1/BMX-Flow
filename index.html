@@ -4,586 +4,826 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
-<title>BMX Flow — Endless Pump Rider</title>
+<meta name="theme-color" content="#1a2e44" />
+<title>BMX Flow</title>
 <style>
+  :root { --gold:#ffd24a; --ink:#11243a; }
   html, body {
-    margin: 0; padding: 0; height: 100%; width: 100%;
-    background: #87b7e0; overflow: hidden;
-    font-family: -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
-    -webkit-user-select: none; user-select: none;
-    -webkit-tap-highlight-color: transparent;
-    touch-action: none; overscroll-behavior: none;
+    margin:0; padding:0; height:100%; width:100%;
+    background:#0c1622; overflow:hidden;
+    font-family:-apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+    -webkit-user-select:none; user-select:none; -webkit-tap-highlight-color:transparent;
+    touch-action:none; overscroll-behavior:none;
   }
-  #game { display: block; width: 100vw; height: 100vh; }
+  #game { display:block; width:100vw; height:100vh; }
 
-  /* ---- Overlays ---- */
   .overlay {
-    position: fixed; inset: 0; display: flex; flex-direction: column;
-    align-items: center; justify-content: center; text-align: center;
-    color: #fff; z-index: 10; padding: 24px; box-sizing: border-box;
+    position:fixed; inset:0; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; text-align:center;
+    color:#fff; z-index:10; padding:24px 26px; box-sizing:border-box;
+    background:radial-gradient(120% 120% at 50% 0%, rgba(28,58,92,.82), rgba(8,16,26,.94));
+    -webkit-backdrop-filter:blur(3px); backdrop-filter:blur(3px);
   }
-  #startScreen { background: rgba(20, 40, 65, 0.92); }
-  #gameOver { background: rgba(20, 40, 65, 0.88); display: none; }
-  h1 { font-size: 8vw; margin: 0 0 8px; letter-spacing: 2px; }
-  h2 { font-size: 6vw; margin: 0 0 4px; }
-  p  { font-size: 3.4vw; max-width: 640px; line-height: 1.5; opacity: 0.9; margin: 6px 0; }
-  .score-big { font-size: 12vw; font-weight: 700; margin: 6px 0; color: #ffd24a; }
+  #gameOver { display:none; }
+  .logo { font-weight:900; letter-spacing:3px; line-height:.92; margin-bottom:6px;
+           font-size:14vw; text-shadow:0 4px 0 rgba(0,0,0,.35); }
+  .logo span { color:var(--gold); }
+  h2 { font-size:7vw; margin:0 0 2px; letter-spacing:2px; }
+  p  { font-size:3.6vw; max-width:560px; line-height:1.55; opacity:.92; margin:5px 0; }
+  .row { display:flex; gap:26px; margin:10px 0 4px; }
+  .stat { text-align:center; }
+  .stat .n { font-size:9vw; font-weight:800; color:var(--gold); line-height:1; }
+  .stat .l { font-size:3vw; opacity:.75; letter-spacing:2px; }
   .btn {
-    margin-top: 22px; padding: 18px 46px; font-size: 5vw; font-weight: 700;
-    color: #102338; background: #ffd24a; border: none; border-radius: 14px;
-    cursor: pointer; box-shadow: 0 6px 0 #c79a14; letter-spacing: 1px;
+    margin-top:20px; padding:17px 50px; font-size:5.4vw; font-weight:800;
+    color:var(--ink); background:var(--gold); border:none; border-radius:16px;
+    cursor:pointer; box-shadow:0 6px 0 #c79a14; letter-spacing:1px;
   }
-  .btn:active { transform: translateY(3px); box-shadow: 0 3px 0 #c79a14; }
-  .hint { position: fixed; bottom: 10px; left: 0; right: 0; text-align: center;
-          color: rgba(255,255,255,0.85); font-size: 3vw; z-index: 5; pointer-events: none; }
-  @media (min-width: 700px) {
-    h1 { font-size: 52px; } h2 { font-size: 34px; } p { font-size: 18px; }
-    .score-big { font-size: 64px; } .btn { font-size: 26px; } .hint { font-size: 15px; }
+  .btn:active { transform:translateY(3px); box-shadow:0 3px 0 #c79a14; }
+  .keys { display:flex; gap:18px; flex-wrap:wrap; justify-content:center; margin-top:6px; }
+  .key { background:rgba(255,255,255,.10); border:1px solid rgba(255,255,255,.18);
+         border-radius:12px; padding:10px 14px; font-size:3.2vw; min-width:84px; }
+  .key b { display:block; color:var(--gold); font-size:3.6vw; margin-bottom:3px; letter-spacing:1px; }
+  #muteBtn {
+    position:fixed; top:10px; right:10px; z-index:9; width:42px; height:42px;
+    border:none; border-radius:11px; background:rgba(17,36,58,.55); color:#fff;
+    font-size:20px; cursor:pointer; display:none;
+  }
+  @media (min-width:760px){
+    .logo{font-size:90px} h2{font-size:46px} p{font-size:18px}
+    .stat .n{font-size:54px} .stat .l{font-size:13px}
+    .btn{font-size:26px} .key{font-size:15px} .key b{font-size:16px}
   }
 </style>
 </head>
 <body>
 <canvas id="game"></canvas>
+<button id="muteBtn" aria-label="Toggle sound">🔊</button>
 
 <div id="startScreen" class="overlay">
-  <h1>BMX&nbsp;FLOW</h1>
-  <p><b>Hold</b> anywhere to pump &amp; build speed.<br>
-     <b>Release</b> at the lip of a jump to launch.<br>
-     <b>Tilt</b> the phone back / forward to flip in the air.<br>
-     (No tilt sensor? Drag up / down on screen instead.)</p>
+  <div class="logo">BMX<span>FLOW</span></div>
+  <p>Auto-ride the endless dirt trail. Pump the transitions for speed, boost off the lips, flip in the air, stomp the landing.</p>
+  <div class="keys">
+    <div class="key"><b>HOLD</b>pump / charge</div>
+    <div class="key"><b>RELEASE</b>boost off lip</div>
+    <div class="key"><b>TILT</b>flip in air</div>
+  </div>
   <button id="startBtn" class="btn">TAP TO START</button>
-  <p style="opacity:0.65">Best in landscape orientation.</p>
+  <p style="opacity:.6">No motion sensor? Drag up/down to flip. Best in landscape.</p>
 </div>
 
 <div id="gameOver" class="overlay">
-  <h2>CRASH!</h2>
-  <div class="score-big" id="finalScore">0</div>
-  <p id="finalBreakdown">Distance 0 m &middot; Tricks 0</p>
-  <button id="restartBtn" class="btn">RESTART</button>
+  <h2>WIPEOUT</h2>
+  <div class="row">
+    <div class="stat"><div class="n" id="goScore">0</div><div class="l">SCORE</div></div>
+    <div class="stat"><div class="n" id="goBest">0</div><div class="l">BEST</div></div>
+  </div>
+  <p id="goBreak">Distance 0 m · Tricks 0</p>
+  <button id="restartBtn" class="btn">RIDE AGAIN</button>
 </div>
 
-<div class="hint" id="hint"></div>
-
 <script>
+"use strict";
 /* ============================================================================
- *  CONFIG  —  ALL feel constants live here. Tune freely; nothing below is
- *  hard-coded for these values. Units: pixels, seconds, degrees.
+ *  CONFIG — ALL feel constants live here. Tune freely. Units: px, seconds, deg.
  * ==========================================================================*/
 const CONFIG = {
   // --- Gravity & forward motion -------------------------------------------
-  gravity:            1500,   // downward accel in the air (px/s^2)
-  baseSpeed:          330,    // cruising forward speed on the ground (px/s)
-  speedReturn:        0.55,   // how fast ground speed drifts back to baseSpeed (1/s)
-  airSpeedReturn:     0.05,   // same, but while airborne (keep small)
-  slopeGravityScale:  1.0,    // how strongly slopes speed you up / slow you down
+  gravity:             1650,   // downward accel while airborne (px/s^2)
+  baseSpeed:           360,    // cruising forward speed (px/s)
+  maxSpeed:            980,    // hard cap on forward speed
+  speedReturn:         0.5,    // drift back toward baseSpeed on ground (1/s)
+  airDrag:             0.04,   // mild speed normalisation in the air (1/s)
+  slopeGravityScale:   1.15,   // how much slopes speed you up / slow you down
 
   // --- Pumping (hold on the ground) ---------------------------------------
-  pumpAccel:          650,    // forward accel while holding on the ground (px/s^2)
-  compressionScale:   650,    // multiplies terrain compression -> extra pump
-  maxCompressionBonus:2.2,    // cap on the compression pump multiplier
-  pumpChargeRate:     320,    // how fast launch-charge builds while pumping
-  pumpChargeDecay:    220,    // how fast charge bleeds off when not holding
-  maxPumpCharge:      260,    // cap on stored launch charge
+  pumpAccel:           720,    // forward accel while holding on ground (px/s^2)
+  compressionScale:    700,    // terrain compression -> bonus pump
+  maxCompressionBonus: 2.4,    // cap on the compression multiplier
+  pumpChargeRate:      330,    // launch-charge build rate while pumping
+  pumpChargeDecay:     240,    // charge bleed-off when not holding
+  maxPumpCharge:       300,    // stored launch charge cap
 
   // --- Launch (release near a lip) ----------------------------------------
-  minLaunchSlope:     0.06,   // minimum upslope (de/dx) needed to pop off
-  jumpForceMultiplier:1.35,   // converts speed*slope into upward launch velocity
-  pumpLaunchMultiplier:1.6,   // converts stored pump charge into launch velocity
+  minLaunchSlope:      0.05,   // min upslope (de/dx) to boost off
+  jumpForceMultiplier: 1.5,    // speed*slope -> upward launch velocity
+  pumpLaunchMultiplier:1.7,    // stored charge -> upward launch velocity
+  autoPopThreshold:    1.05,   // >1: how readily sharp crests loft you naturally
 
   // --- Air rotation / tricks ----------------------------------------------
-  airRotationSpeed:   430,    // max rotation speed at full tilt (deg/s)
-  tiltRange:          35,     // tilt (deg from neutral) that counts as "full"
-  tiltInvert:         false,  // flip this if back/forward feel reversed
-  dragRotateFactor:   0.7,    // desktop fallback: deg of spin per px dragged
+  airRotationSpeed:    480,    // max spin speed at full tilt (deg/s)
+  tiltRange:           32,     // tilt (deg from neutral) counted as "full"
+  tiltAxis:            "auto", // "auto" | "beta" | "gamma"
+  tiltInvert:          false,  // flip if back/forward feel reversed
+  dragRotateFactor:    0.75,   // desktop fallback: deg spin per px dragged
 
-  // --- Landing -------------------------------------------------------------
-  landingTolerance:   25,     // |bike angle - slope| within this = clean (deg)
-  landingSpeedKeep:   0.92,   // fraction of speed kept on a clean landing
-  pointsPerFlip:      100,    // score per completed 360 rotation
+  // --- Landing & scoring ---------------------------------------------------
+  landingTolerance:    28,     // |bike angle - slope| within this = clean (deg)
+  perfectTolerance:    10,     // within this = PERFECT (bonus + speed boost)
+  landingSpeedKeep:    0.94,   // speed kept on a clean landing
+  perfectSpeedBoost:   1.06,   // speed multiplier on a perfect landing
+  pointsPerFlip:       150,    // base score per completed 360
+  perfectBonus:        75,     // bonus added on a perfect landing
+  comboStep:           0.5,    // multiplier added to combo per trick landed
 
   // --- Terrain (procedural, infinite) -------------------------------------
-  terrainAmplitude:   72,     // hump height (px)
-  terrainWavelength:  240,    // px per noise unit -> controls roller spacing
-  terrainOctaves:     3,      // layers of detail (more = bumpier)
-  terrainSeed:        7,      // change for a different course
+  pointSpacing:        128,    // base px between terrain control points (frequency)
+  rollAmp:             58,     // roller hump size (px)
+  maxElev:             190,    // elevation clamp (px)
+  jumpChance:          0.16,   // base chance a feature is a jump
+  jumpHeight:          120,    // jump lip height (px)
+  gapLength:           230,    // horizontal gap over a jump (px)
+  landingDrop:         70,     // extra drop on the landing side (px)
+  startFlat:           640,    // flat run-in distance before features (world px)
+  difficultyDist:      4200,   // distance over which difficulty ramps to max (m*px)
 
-  // --- Bike / camera / display --------------------------------------------
-  wheelRadius:        13,
-  wheelBase:          46,
-  riderScreenXFrac:   0.30,   // rider's horizontal position (fraction of width)
-  baseLineFrac:       0.60,   // screen y for elevation 0 (fraction of height)
-  pxPerMeter:         26,     // world px per displayed metre
+  // --- Bike / rider geometry ----------------------------------------------
+  wheelRadius:         16,
+  wheelBase:           56,
+  crouchDepth:         11,     // how far the rider sinks when pumping (px)
 
-  // --- Engine --------------------------------------------------------------
-  maxDt:              1/30,   // clamp frame delta so lag can't teleport you
+  // --- Camera / display ----------------------------------------------------
+  riderScreenXFrac:    0.32,   // rider horizontal position (fraction of width)
+  baseLineFrac:        0.66,   // screen y for elevation 0 (fraction of height)
+  camVertFollow:       0.65,   // vertical camera follow on big air (0..1)
+  camLerp:             6,      // camera smoothing speed (1/s)
+  pxPerMeter:          24,     // world px per displayed metre
+  // Faux 3/4 "looking slightly down the track" tilt (BMX-Flow style).
+  tiltDepth:           16,     // thickness of the visible top face (px)
+  tiltSkew:            7,      // how far the top face recedes sideways (px)
 
-  // --- Colours -------------------------------------------------------------
-  colSky:    "#87b7e0",
-  colSkyTop: "#cfe6f7",
-  colDirt:   "#9c6b3f",
-  colDirtTop:"#7c4f2a",
-  colGrass:  "#6fae3e",
-  colBike:   "#15324a",
-  colRider:  "#e0452b",
-  colWheel:  "#10202e",
+  // --- Juice ---------------------------------------------------------------
+  shakeCrash:          22,
+  shakeLand:           7,
+  maxDt:               1/30,
 };
 
 /* ============================================================================
- *  SETUP  —  canvas, resize, derived layout values
+ *  UTILITIES
+ * ==========================================================================*/
+const clamp = (v,a,b)=> v<a?a:v>b?b:v;
+const lerp  = (a,b,t)=> a+(b-a)*t;
+const rand  = (a,b)=> a+Math.random()*(b-a);
+const TAU   = Math.PI*2;
+const DEG   = Math.PI/180;
+function angleDelta(a,b){ return ((a-b+180)%360+360)%360-180; }
+
+/* ============================================================================
+ *  CANVAS
  * ==========================================================================*/
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
-let W = 0, H = 0, baseLine = 0, riderScreenX = 0, dpr = 1;
-
-function resize() {
-  dpr = Math.min(window.devicePixelRatio || 1, 2);
-  W = window.innerWidth;
-  H = window.innerHeight;
-  canvas.width = Math.floor(W * dpr);
-  canvas.height = Math.floor(H * dpr);
-  canvas.style.width = W + "px";
-  canvas.style.height = H + "px";
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  baseLine = H * CONFIG.baseLineFrac;
-  riderScreenX = W * CONFIG.riderScreenXFrac;
+let W=0,H=0,baseLine=0,riderScreenX=0,dpr=1;
+function resize(){
+  dpr = Math.min(window.devicePixelRatio||1, 2);
+  W = window.innerWidth; H = window.innerHeight;
+  canvas.width = Math.floor(W*dpr); canvas.height = Math.floor(H*dpr);
+  canvas.style.width = W+"px"; canvas.style.height = H+"px";
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  baseLine = H*CONFIG.baseLineFrac;
+  riderScreenX = W*CONFIG.riderScreenXFrac;
 }
-window.addEventListener("resize", resize);
-resize();
+window.addEventListener("resize", resize); resize();
 
 /* ============================================================================
- *  TERRAIN  —  smooth, continuous, procedurally infinite.
- *  Pure functions of world-x, so there is nothing to store or discard:
- *  old terrain simply stops being sampled once the camera moves past it.
- *  (Kept isolated so alternate level types can swap these out later.)
+ *  AUDIO — tiny WebAudio synth (created on first user gesture)
  * ==========================================================================*/
-function hash(n) {
-  const s = Math.sin(n * 12.9898 + CONFIG.terrainSeed * 78.233) * 43758.5453;
-  return s - Math.floor(s);                 // 0..1
-}
-function valueNoise(x) {
-  const i = Math.floor(x), f = x - i;
-  const u = f * f * (3 - 2 * f);            // smoothstep
-  return hash(i) * (1 - u) + hash(i + 1) * u;
-}
-function fbm(x) {
-  let amp = 1, freq = 1, sum = 0, norm = 0;
-  for (let o = 0; o < CONFIG.terrainOctaves; o++) {
-    sum += amp * valueNoise(x * freq);
-    norm += amp; amp *= 0.5; freq *= 2;
-  }
-  return sum / norm;                        // 0..1
-}
-// Elevation in px, positive = up.
-function terrainElevationAt(worldX) {
-  return (fbm(worldX / CONFIG.terrainWavelength) - 0.5) * 2 * CONFIG.terrainAmplitude;
-}
-// First derivative de/dx (slope, up-positive).
-function terrainSlopeAt(worldX) {
-  const d = 2;
-  return (terrainElevationAt(worldX + d) - terrainElevationAt(worldX - d)) / (2 * d);
-}
-// Second derivative; >0 means concave-up = a compression (dip/transition).
-function terrainCurvatureAt(worldX) {
-  const d = 4;
-  return (terrainElevationAt(worldX + d) - 2 * terrainElevationAt(worldX) +
-          terrainElevationAt(worldX - d)) / (d * d);
-}
+const Sound = {
+  ac:null, muted:false,
+  init(){ if(!this.ac){ try{ this.ac=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } },
+  tone(freq, dur, type, vol, slideTo){
+    if(!this.ac||this.muted) return;
+    const t=this.ac.currentTime, o=this.ac.createOscillator(), g=this.ac.createGain();
+    o.type=type||"sine"; o.frequency.setValueAtTime(freq,t);
+    if(slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t+dur);
+    g.gain.setValueAtTime(0.0001,t);
+    g.gain.exponentialRampToValueAtTime(vol||0.2, t+0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t+dur);
+    o.connect(g); g.connect(this.ac.destination); o.start(t); o.stop(t+dur+0.02);
+  },
+  noise(dur, vol){
+    if(!this.ac||this.muted) return;
+    const t=this.ac.currentTime, n=Math.floor(this.ac.sampleRate*dur);
+    const buf=this.ac.createBuffer(1,n,this.ac.sampleRate), d=buf.getChannelData(0);
+    for(let i=0;i<n;i++) d[i]=(Math.random()*2-1)*(1-i/n);
+    const s=this.ac.createBufferSource(); s.buffer=buf;
+    const g=this.ac.createGain(); g.gain.value=vol||0.3;
+    const f=this.ac.createBiquadFilter(); f.type="lowpass"; f.frequency.value=900;
+    s.connect(f); f.connect(g); g.connect(this.ac.destination); s.start();
+  },
+  launch(){ this.tone(220,0.28,"square",0.18,640); },
+  flip(){ this.tone(520,0.12,"triangle",0.18,820); },
+  land(){ this.noise(0.14,0.35); this.tone(120,0.16,"sine",0.22,70); },
+  perfect(){ this.tone(660,0.1,"triangle",0.2,990); this.tone(990,0.14,"triangle",0.16,1320); },
+  crash(){ this.noise(0.45,0.5); this.tone(180,0.5,"sawtooth",0.25,50); },
+};
 
 /* ============================================================================
- *  GAME STATE
+ *  TERRAIN — control points + Catmull-Rom spline. Generated ahead of the
+ *  rider and pruned behind, so it is genuinely infinite. (Self-contained so
+ *  alternate level types can swap this module out later.)
  * ==========================================================================*/
-let state = "start";          // "start" | "play" | "over"
-let bike, score, trickPoints, distanceM, flipFlash;
+const Terrain = {
+  pts:[], genX:0, genE:0,
 
-function resetGame() {
-  bike = {
-    x: 0,                     // world x
-    ry: 0,                    // elevation (up-positive); set below
-    vx: CONFIG.baseSpeed,     // forward speed
-    vyUp: 0,                  // vertical velocity (up-positive)
-    angle: 0,                 // orientation in degrees (0 = level, +up at front)
-    onGround: true,
-    pumpCharge: 0,
-    takeoffAngle: 0,
-    totalRotation: 0,         // deg accumulated since last takeoff
+  reset(){
+    this.pts.length=0; this.genX=0; this.genE=0;
+    // Flat run-in so the rider always starts cleanly.
+    for(let i=0;i<6;i++){ this.pts.push({x:i*CONFIG.pointSpacing, e:0}); }
+    this.genX = 5*CONFIG.pointSpacing; this.genE = 0;
+    this.ensure(2000);
+  },
+  difficulty(){ return clamp(player ? player.x/CONFIG.difficultyDist : 0, 0, 1); },
+
+  pushNext(){
+    const d=this.difficulty();
+    const sp=CONFIG.pointSpacing*rand(0.85,1.2);
+    if(this.genX>CONFIG.startFlat && Math.random()<CONFIG.jumpChance*(0.55+0.9*d)){
+      // JUMP: ramp up to a lip, then a gap down to a lower landing.
+      const h=CONFIG.jumpHeight*rand(0.7,1.25)*(0.8+0.45*d);
+      this.genX+=sp; this.genE=clamp(this.genE+h,-CONFIG.maxElev,CONFIG.maxElev);
+      this.pts.push({x:this.genX,e:this.genE});
+      const gap=CONFIG.gapLength*rand(0.8,1.3);
+      this.genX+=gap; this.genE=clamp(this.genE-h-CONFIG.landingDrop*Math.random(),-CONFIG.maxElev,CONFIG.maxElev);
+      this.pts.push({x:this.genX,e:this.genE});
+    } else {
+      // ROLLER: gentle mean-reverting random walk.
+      const amp=CONFIG.rollAmp*(0.6+0.8*d);
+      this.genE=clamp(this.genE*0.5+rand(-1,1)*amp, -CONFIG.maxElev*0.7, CONFIG.maxElev*0.7);
+      this.genX+=sp; this.pts.push({x:this.genX,e:this.genE});
+    }
+  },
+  ensure(uptoX){ while(this.pts[this.pts.length-1].x < uptoX) this.pushNext(); },
+  prune(leftX){ while(this.pts.length>4 && this.pts[2].x < leftX) this.pts.shift(); },
+
+  segIndex(x){
+    const p=this.pts;
+    if(x<=p[0].x) return 0;
+    if(x>=p[p.length-1].x) return p.length-2;
+    let lo=0,hi=p.length-1;
+    while(hi-lo>1){ const m=(lo+hi)>>1; if(p[m].x<=x) lo=m; else hi=m; }
+    return lo;
+  },
+  elevAt(x){
+    const p=this.pts; const i=this.segIndex(x);
+    const p1=p[i], p2=p[i+1];
+    const p0=p[i-1]||p1, p3=p[i+2]||p2;
+    const t=clamp((x-p1.x)/(p2.x-p1.x||1),0,1), t2=t*t, t3=t2*t;
+    return 0.5*((2*p1.e)+(-p0.e+p2.e)*t+(2*p0.e-5*p1.e+4*p2.e-p3.e)*t2+(-p0.e+3*p1.e-3*p2.e+p3.e)*t3);
+  },
+  slopeAt(x){ const d=2; return (this.elevAt(x+d)-this.elevAt(x-d))/(2*d); },
+  curvAt(x){ const d=4; return (this.elevAt(x+d)-2*this.elevAt(x)+this.elevAt(x-d))/(d*d); },
+};
+
+/* ============================================================================
+ *  SCENERY — parallax background layers (purely cosmetic)
+ * ==========================================================================*/
+const Scenery = {
+  clouds:[], hillsFar:[], hillsMid:[],
+  reset(){
+    this.clouds=[]; for(let i=0;i<7;i++) this.clouds.push({x:rand(0,2000),y:rand(40,H*0.4),s:rand(0.5,1.2),sp:rand(6,16)});
+  },
+  // Deterministic hill silhouette via layered sines (no allocation needed).
+  hill(worldX, freq, amp, phase){ return Math.sin(worldX*freq+phase)*amp + Math.sin(worldX*freq*2.3+phase)*amp*0.35; },
+};
+
+/* ============================================================================
+ *  PARTICLES — dirt spray, boost puffs, crash debris
+ * ==========================================================================*/
+const Particles = {
+  list:[],
+  reset(){ this.list.length=0; },
+  spawn(wx,wy,vx,vy,life,size,col){ this.list.push({wx,wy,vx,vy,life,max:life,size,col}); },
+  burst(wx,wy,n,power,col){
+    for(let i=0;i<n;i++){ const a=rand(0,TAU),s=rand(0.2,1)*power;
+      this.spawn(wx,wy,Math.cos(a)*s,Math.sin(a)*s-power*0.4,rand(0.4,0.9),rand(2,5),col); }
+  },
+  update(dt){
+    for(let i=this.list.length-1;i>=0;i--){ const p=this.list[i];
+      p.life-=dt; if(p.life<=0){ this.list.splice(i,1); continue; }
+      p.vy+=1200*dt; p.wx+=p.vx*dt; p.wy+=p.vy*dt;
+    }
+  },
+};
+
+/* ============================================================================
+ *  PLAYER / BIKE STATE
+ * ==========================================================================*/
+let player, score, trickPoints, distanceM, best=0, combo=0;
+let popups=[], flipFlash={t:0,txt:"",col:"#fff"}, shake=0, wheelAngle=0;
+
+function loadBest(){ try{ best=parseInt(localStorage.getItem("bmxflow_best")||"0",10)||0; }catch(e){ best=0; } }
+function saveBest(){ try{ localStorage.setItem("bmxflow_best", String(best)); }catch(e){} }
+
+function resetGame(){
+  Terrain.reset(); Scenery.reset(); Particles.reset();
+  player = {
+    x:0, ry:0, vx:CONFIG.baseSpeed, vyUp:0,
+    angle:0, onGround:true, pumpCharge:0,
+    takeoffAngle:0, totalRotation:0, crouch:0, landGrace:0,
   };
-  bike.ry = terrainElevationAt(bike.x);
-  bike.angle = slopeAngleDeg(bike.x);
-  score = 0; trickPoints = 0; distanceM = 0;
-  flipFlash = { flips: 0, t: 0 };
-  input.holding = false; input.pointerDown = false; input.launchRequested = false;
+  player.ry=Terrain.elevAt(0); player.angle=slopeDeg(0);
+  Terrain.ensure(2000);
+  score=0; trickPoints=0; distanceM=0; combo=0;
+  popups=[]; flipFlash={t:0,txt:"",col:"#fff"}; shake=0; wheelAngle=0;
+  camY=0;
+  input.holding=false; input.pointerDown=false; input.launchRequested=false;
 }
-
-function slopeAngleDeg(worldX) {
-  return Math.atan(terrainSlopeAt(worldX)) * 180 / Math.PI;
-}
-// Smallest signed difference a-b folded into [-180,180].
-function angleDelta(a, b) {
-  return ((a - b + 180) % 360 + 360) % 360 - 180;
-}
-const clamp = (v, lo, hi) => v < lo ? lo : v > hi ? hi : v;
+function slopeDeg(x){ return Math.atan(Terrain.slopeAt(x))/DEG; }
 
 /* ============================================================================
- *  INPUT  —  one button (touch/hold) + tilt, with a desktop drag fallback.
- *  (Isolated so multiplayer / alternate control schemes can hook in later.)
+ *  INPUT — one button (hold) + tilt, with desktop drag fallback
  * ==========================================================================*/
-const input = { holding: false, pointerDown: false, launchRequested: false, tilt: 0 };
-let orientationActive = false;
-let neutralBeta = null;
-let lastPointerY = 0;
+const input={ holding:false, pointerDown:false, launchRequested:false, tilt:0 };
+let orientationActive=false, neutralTilt=null, lastPointerY=0;
 
-function pointerY(e) {
-  if (e.touches && e.touches.length) return e.touches[0].clientY;
-  if (e.changedTouches && e.changedTouches.length) return e.changedTouches[0].clientY;
+function pointerY(e){
+  if(e.touches&&e.touches.length) return e.touches[0].clientY;
+  if(e.changedTouches&&e.changedTouches.length) return e.changedTouches[0].clientY;
   return e.clientY;
 }
-
-function onPointerDown(e) {
-  if (state !== "play") return;
-  e.preventDefault();
-  input.pointerDown = true;
-  input.holding = true;             // holding pumps only while on the ground (see update)
-  lastPointerY = pointerY(e);
-}
-function onPointerMove(e) {
-  if (state !== "play" || !input.pointerDown) return;
-  e.preventDefault();
-  const y = pointerY(e);
-  // Desktop / no-sensor fallback: drag up = backflip, drag down = frontflip.
-  if (!orientationActive && !bike.onGround) {
-    const dy = lastPointerY - y;    // up is positive
-    const da = dy * CONFIG.dragRotateFactor;
-    bike.angle += da;
-    bike.totalRotation += da;
+function onDown(e){ if(state!=="play")return; e.preventDefault();
+  input.pointerDown=true; input.holding=true; lastPointerY=pointerY(e); }
+function onMove(e){ if(state!=="play"||!input.pointerDown)return; e.preventDefault();
+  const y=pointerY(e);
+  if(!orientationActive && !player.onGround){          // drag-to-flip fallback
+    const da=(lastPointerY-y)*CONFIG.dragRotateFactor;
+    player.angle+=da; player.totalRotation+=da;
   }
-  lastPointerY = y;
+  lastPointerY=y;
 }
-function onPointerUp(e) {
-  if (state !== "play") return;
-  e.preventDefault();
-  if (input.holding && bike.onGround) input.launchRequested = true;
-  input.holding = false;
-  input.pointerDown = false;
+function onUp(e){ if(state!=="play")return; e.preventDefault();
+  if(input.holding && player.onGround) input.launchRequested=true;
+  input.holding=false; input.pointerDown=false;
 }
+canvas.addEventListener("touchstart",onDown,{passive:false});
+canvas.addEventListener("touchmove",onMove,{passive:false});
+canvas.addEventListener("touchend",onUp,{passive:false});
+canvas.addEventListener("touchcancel",onUp,{passive:false});
+canvas.addEventListener("mousedown",onDown);
+canvas.addEventListener("mousemove",onMove);
+window.addEventListener("mouseup",onUp);
 
-canvas.addEventListener("touchstart", onPointerDown, { passive: false });
-canvas.addEventListener("touchmove",  onPointerMove, { passive: false });
-canvas.addEventListener("touchend",   onPointerUp,   { passive: false });
-canvas.addEventListener("touchcancel",onPointerUp,   { passive: false });
-canvas.addEventListener("mousedown",  onPointerDown);
-canvas.addEventListener("mousemove",  onPointerMove);
-window.addEventListener("mouseup",    onPointerUp);
-
-// Tilt (DeviceOrientation beta axis). neutralBeta calibrates to however the
-// phone is held at the first reading.
-function onDeviceOrientation(e) {
-  if (e.beta == null) return;
-  orientationActive = true;
-  if (neutralBeta == null) neutralBeta = e.beta;
-  let d = e.beta - neutralBeta;
-  input.tilt = clamp(d / CONFIG.tiltRange, -1, 1) * (CONFIG.tiltInvert ? -1 : 1);
+function tiltRaw(e){
+  const o = (screen.orientation&&screen.orientation.angle!=null)?screen.orientation.angle:(window.orientation||0);
+  if(CONFIG.tiltAxis==="beta")  return e.beta;
+  if(CONFIG.tiltAxis==="gamma") return e.gamma;
+  if(o===90)  return -e.gamma;            // landscape
+  if(o===270||o===-90) return e.gamma;    // landscape (other way)
+  return e.beta;                           // portrait
+}
+function onOrient(e){
+  if(e.beta==null && e.gamma==null) return;
+  const raw=tiltRaw(e); if(raw==null) return;
+  orientationActive=true;
+  if(neutralTilt==null) neutralTilt=raw;
+  let d=raw-neutralTilt;
+  input.tilt=clamp(d/CONFIG.tiltRange,-1,1)*(CONFIG.tiltInvert?-1:1);
 }
 
 /* ============================================================================
  *  UPDATE / PHYSICS
  * ==========================================================================*/
-function update(dt) {
-  if (state !== "play") return;
+function update(dt){
+  if(state!=="play"){ Particles.update(dt); decay(dt); return; }
+  if(player.onGround) updateGround(dt); else updateAir(dt);
 
-  if (bike.onGround) updateGround(dt);
-  else               updateAir(dt);
+  // Wheel spin + camera + cosmetics.
+  wheelAngle += (player.vx*dt)/CONFIG.wheelRadius;
+  Terrain.ensure(player.x + W + 600);
+  Terrain.prune(player.x - W);
+  Particles.update(dt);
 
-  // Scoring / HUD values.
-  distanceM = Math.max(0, Math.floor(bike.x / CONFIG.pxPerMeter));
-  score = distanceM + trickPoints;
-  if (flipFlash.t > 0) flipFlash.t -= dt;
+  const camTarget = player.onGround ? player.ry*0.25 : player.ry*CONFIG.camVertFollow;
+  camY = lerp(camY, camTarget, 1-Math.exp(-CONFIG.camLerp*dt));
+
+  distanceM=Math.max(0,Math.floor(player.x/CONFIG.pxPerMeter));
+  score=distanceM+trickPoints;
+  decay(dt);
+}
+function decay(dt){
+  if(flipFlash.t>0) flipFlash.t-=dt;
+  if(shake>0) shake=Math.max(0,shake-shake*8*dt-12*dt);
+  for(let i=popups.length-1;i>=0;i--){ const p=popups[i]; p.t-=dt; p.wy-=40*dt; if(p.t<=0) popups.splice(i,1); }
 }
 
-function updateGround(dt) {
-  const slope = terrainSlopeAt(bike.x);
-  bike.angle = Math.atan(slope) * 180 / Math.PI;   // glued to the trail
+function updateGround(dt){
+  const x=player.x, slope=Terrain.slopeAt(x);
+  player.angle=Math.atan(slope)/DEG;
+  if(player.landGrace>0) player.landGrace-=dt;
 
-  // Pump: holding accelerates you; the gain is bigger inside a compression.
-  if (input.holding) {
-    const comp = Math.max(0, terrainCurvatureAt(bike.x)) * CONFIG.compressionScale;
-    const pumpFactor = 1 + Math.min(comp, CONFIG.maxCompressionBonus);
-    bike.vx += CONFIG.pumpAccel * pumpFactor * dt;
-    bike.pumpCharge = Math.min(CONFIG.maxPumpCharge,
-                               bike.pumpCharge + CONFIG.pumpChargeRate * pumpFactor * dt);
+  // Pump: bigger gain inside a compression (concave-up transition).
+  let crouchTarget=0;
+  if(input.holding){
+    crouchTarget=1;
+    const comp=Math.max(0,Terrain.curvAt(x))*CONFIG.compressionScale;
+    const pf=1+Math.min(comp,CONFIG.maxCompressionBonus);
+    player.vx+=CONFIG.pumpAccel*pf*dt;
+    player.pumpCharge=Math.min(CONFIG.maxPumpCharge,player.pumpCharge+CONFIG.pumpChargeRate*pf*dt);
+    if(Math.random()<pf*dt*6) Particles.spawn(x-20,Terrain.elevAt(x-20),rand(-40,-120),rand(-20,40),rand(0.3,0.6),rand(2,4),"#8a5a2f");
   } else {
-    bike.pumpCharge = Math.max(0, bike.pumpCharge - CONFIG.pumpChargeDecay * dt);
+    player.pumpCharge=Math.max(0,player.pumpCharge-CONFIG.pumpChargeDecay*dt);
   }
+  player.crouch=lerp(player.crouch,crouchTarget,1-Math.exp(-12*dt));
 
-  // Slopes bleed/feed speed (sin of slope angle).
-  const sinSlope = slope / Math.sqrt(1 + slope * slope);
-  bike.vx += -sinSlope * CONFIG.gravity * CONFIG.slopeGravityScale * dt;
+  // Slope feeds/bleeds speed; gentle return to cruise; clamp.
+  const sinS=slope/Math.sqrt(1+slope*slope);
+  player.vx+=-sinS*CONFIG.gravity*CONFIG.slopeGravityScale*dt;
+  player.vx+=(CONFIG.baseSpeed-player.vx)*CONFIG.speedReturn*dt;
+  player.vx=clamp(player.vx,CONFIG.baseSpeed*0.45,CONFIG.maxSpeed);
 
-  // Gentle drift back toward cruising speed.
-  bike.vx += (CONFIG.baseSpeed - bike.vx) * CONFIG.speedReturn * dt;
-  if (bike.vx < CONFIG.baseSpeed * 0.5) bike.vx = CONFIG.baseSpeed * 0.5;
+  player.x+=player.vx*dt;
+  player.ry=Terrain.elevAt(player.x);
 
-  bike.x += bike.vx * dt;
-  bike.ry = terrainElevationAt(bike.x);            // stay on the trail
+  const nx=player.x, nSlope=Terrain.slopeAt(nx), nCurv=Terrain.curvAt(nx);
 
-  // Launch: released on an upslope -> convert speed + charge into a pop.
-  if (input.launchRequested) {
-    input.launchRequested = false;
-    const s2 = terrainSlopeAt(bike.x);
-    if (s2 > CONFIG.minLaunchSlope) {
-      const sinUp = s2 / Math.sqrt(1 + s2 * s2);   // steeper near the lip = bigger
-      bike.vyUp = bike.vx * sinUp * CONFIG.jumpForceMultiplier
-                + bike.pumpCharge * CONFIG.pumpLaunchMultiplier;
-      bike.onGround = false;
-      bike.takeoffAngle = bike.angle;
-      bike.totalRotation = 0;
-      bike.pumpCharge = 0;
-    }
+  // Explicit boost: released on an upslope -> pop off the lip.
+  if(input.launchRequested){
+    input.launchRequested=false;
+    if(nSlope>CONFIG.minLaunchSlope) doLaunch(nx,nSlope,true);
+  }
+  // Natural air: sharp crest the wheels can't track -> loft off.
+  else if(player.onGround && player.landGrace<=0 && nCurv<0 &&
+          player.vx*player.vx*(-nCurv) > CONFIG.gravity*CONFIG.autoPopThreshold){
+    doLaunch(nx,nSlope,false);
   }
 }
 
-function updateAir(dt) {
-  bike.vyUp -= CONFIG.gravity * dt;
-  bike.ry += bike.vyUp * dt;
-  bike.vx += (CONFIG.baseSpeed - bike.vx) * CONFIG.airSpeedReturn * dt;
-  bike.x += bike.vx * dt;
+function doLaunch(x,slope,boosted){
+  const sinUp=slope/Math.sqrt(1+slope*slope);
+  let vUp=Math.max(player.vx*sinUp,0);
+  if(boosted){
+    vUp = vUp*CONFIG.jumpForceMultiplier + player.pumpCharge*CONFIG.pumpLaunchMultiplier;
+    Particles.burst(x,Terrain.elevAt(x),14,420,"#cf9b56");
+    Sound.launch();
+  }
+  player.vyUp=Math.max(vUp,60);
+  player.onGround=false;
+  player.takeoffAngle=player.angle;
+  player.totalRotation=0;
+  player.pumpCharge=0;
+  player.crouch=-0.6;   // extend on pop
+}
 
-  // Rotation from tilt (drag fallback is applied directly in onPointerMove).
-  if (orientationActive) {
-    const da = CONFIG.airRotationSpeed * input.tilt * dt;
-    bike.angle += da;
-    bike.totalRotation += da;
+function updateAir(dt){
+  player.vyUp-=CONFIG.gravity*dt;
+  player.ry+=player.vyUp*dt;
+  player.vx+=(CONFIG.baseSpeed-player.vx)*CONFIG.airDrag*dt;
+  player.x+=player.vx*dt;
+  player.crouch=lerp(player.crouch,0,1-Math.exp(-7*dt));
+
+  if(orientationActive){
+    const before=Math.floor(Math.abs(player.totalRotation)/360);
+    const da=CONFIG.airRotationSpeed*input.tilt*dt;
+    player.angle+=da; player.totalRotation+=da;
+    if(Math.floor(Math.abs(player.totalRotation)/360)>before) Sound.flip();
   }
 
-  // Landing: only when descending through the trail surface.
-  const groundE = terrainElevationAt(bike.x);
-  if (bike.ry <= groundE && bike.vyUp <= 0) {
-    const slopeDeg = slopeAngleDeg(bike.x);
-    const diff = angleDelta(bike.angle, slopeDeg);
-    if (Math.abs(diff) <= CONFIG.landingTolerance) {
-      // Clean: keep momentum, award completed flips.
-      const flips = Math.floor(Math.abs(bike.totalRotation) / 360);
-      if (flips > 0) {
-        trickPoints += flips * CONFIG.pointsPerFlip;
-        flipFlash = { flips: flips, t: 1.1 };
-      }
-      bike.onGround = true;
-      bike.ry = groundE;
-      bike.vyUp = 0;
-      bike.angle = slopeDeg;
-      bike.totalRotation = 0;
-      bike.vx *= CONFIG.landingSpeedKeep;
-    } else {
-      crash();
-    }
+  const groundE=Terrain.elevAt(player.x);
+  if(player.ry<=groundE && player.vyUp<=0){
+    const sDeg=slopeDeg(player.x);
+    const diff=Math.abs(angleDelta(player.angle,sDeg));
+    if(diff<=CONFIG.landingTolerance) land(groundE,sDeg,diff);
+    else crash();
   }
 }
 
-function crash() {
-  state = "over";
-  document.getElementById("finalScore").textContent = score;
-  document.getElementById("finalBreakdown").textContent =
-    "Distance " + distanceM + " m · Tricks " + trickPoints;
-  document.getElementById("gameOver").style.display = "flex";
+function land(groundE,sDeg,diff){
+  const flips=Math.floor(Math.abs(player.totalRotation)/360);
+  const perfect=diff<=CONFIG.perfectTolerance;
+  if(flips>0){
+    combo+=1;
+    const mult=1+(combo-1)*CONFIG.comboStep;
+    let pts=Math.round(flips*CONFIG.pointsPerFlip*mult);
+    if(perfect) pts+=CONFIG.perfectBonus;
+    trickPoints+=pts;
+    const dir=player.totalRotation<0?"FRONT":"BACK";
+    const name=(flips>1?flips+"x ":"")+dir+"FLIP";
+    flipFlash={t:1.2, txt:(perfect?"PERFECT ":"")+name+"  +"+pts+(mult>1?"  x"+mult.toFixed(1):""), col:perfect?"#7CFC9A":"#ffd24a"};
+    popups.push({wx:player.x,wy:groundE+60,t:1.0,txt:"+"+pts,col:perfect?"#7CFC9A":"#ffd24a"});
+    perfect?Sound.perfect():Sound.land();
+  } else {
+    if(perfect && player.vyUp<-260){ /* clean stomp, no trick */ }
+    Sound.land();
+    if(flips===0) combo=0;
+  }
+  shake=Math.max(shake, perfect?CONFIG.shakeLand*1.6:CONFIG.shakeLand);
+  Particles.burst(player.x,groundE,10,Math.min(420,Math.abs(player.vyUp)+120),"#8a5a2f");
+
+  player.onGround=true; player.ry=groundE; player.vyUp=0;
+  player.angle=sDeg; player.totalRotation=0; player.landGrace=0.12;
+  player.vx*=perfect?CONFIG.perfectSpeedBoost:CONFIG.landingSpeedKeep;
+  player.vx=Math.min(player.vx,CONFIG.maxSpeed);
+}
+
+function crash(){
+  state="over"; combo=0; shake=CONFIG.shakeCrash;
+  Particles.burst(player.x,Terrain.elevAt(player.x),26,520,"#8a5a2f");
+  Particles.burst(player.x,player.ry,16,360,"#c44");
+  Sound.crash();
+  if(score>best){ best=score; saveBest(); }
+  document.getElementById("goScore").textContent=score;
+  document.getElementById("goBest").textContent=best;
+  document.getElementById("goBreak").textContent="Distance "+distanceM+" m · Tricks "+trickPoints;
+  document.getElementById("gameOver").style.display="flex";
 }
 
 /* ============================================================================
  *  RENDER
  * ==========================================================================*/
-function worldToScreenX(worldX, cameraX) { return worldX - cameraX; }
+function sy(elev){ return baseLine-(elev-camY); }   // elevation -> screen y
 
-function render() {
-  const cameraX = bike.x - riderScreenX;
+function render(){
+  const camX=player.x-riderScreenX;
+  let ox=0,oy=0;
+  if(shake>0){ ox=rand(-shake,shake); oy=rand(-shake,shake); }
+  ctx.save(); ctx.translate(ox,oy);
 
   drawSky();
-  drawTerrain(cameraX);
-  drawBike(cameraX);
+  drawParallax(camX);
+  drawTerrain(camX);
+  drawParticles(camX);
+  drawBike(camX);
+  ctx.restore();
+
   drawHUD();
 }
 
-function drawSky() {
-  const g = ctx.createLinearGradient(0, 0, 0, H);
-  g.addColorStop(0, CONFIG.colSkyTop);
-  g.addColorStop(1, CONFIG.colSky);
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, W, H);
+function drawSky(){
+  const g=ctx.createLinearGradient(0,-30,0,H);
+  g.addColorStop(0,"#3f86c9"); g.addColorStop(0.55,"#7db6e6"); g.addColorStop(1,"#cfeaff");
+  ctx.fillStyle=g; ctx.fillRect(-40,-40,W+80,H+80);
+  // sun
+  ctx.fillStyle="rgba(255,243,196,0.95)";
+  ctx.beginPath(); ctx.arc(W*0.8,H*0.2,46,0,TAU); ctx.fill();
+  ctx.fillStyle="rgba(255,243,196,0.25)";
+  ctx.beginPath(); ctx.arc(W*0.8,H*0.2,72,0,TAU); ctx.fill();
 }
 
-function drawTerrain(cameraX) {
-  const step = 6;
-  ctx.beginPath();
-  ctx.moveTo(0, H);
-  let firstY = 0;
-  for (let sx = 0; sx <= W + step; sx += step) {
-    const e = terrainElevationAt(sx + cameraX);
-    const sy = baseLine - e;
-    if (sx === 0) firstY = sy;
-    ctx.lineTo(sx, sy);
+function drawParallax(camX){
+  // clouds
+  ctx.fillStyle="rgba(255,255,255,0.9)";
+  for(const c of Scenery.clouds){
+    c.x-=c.sp*0.016; if(c.x<camX*0.1-200) c.x=camX*0.1+W+rand(100,400);
+    const px=c.x-camX*0.1, py=c.y; const r=18*c.s;
+    ctx.beginPath();
+    ctx.arc(px,py,r,0,TAU); ctx.arc(px+r,py+4,r*0.8,0,TAU);
+    ctx.arc(px-r,py+5,r*0.7,0,TAU); ctx.arc(px+r*0.4,py-r*0.6,r*0.7,0,TAU);
+    ctx.fill();
   }
-  ctx.lineTo(W, H);
+  // far hills
+  drawHillBand(camX*0.25, 0.0016, 70, H*0.52, "#9bb7d6");
+  // mid hills
+  drawHillBand(camX*0.45, 0.0026, 95, H*0.62, "#7bab63");
+  // near hills
+  drawHillBand(camX*0.7, 0.004, 120, H*0.72, "#5d9249");
+}
+function drawHillBand(scroll, freq, amp, yBase, col){
+  ctx.fillStyle=col; ctx.beginPath(); ctx.moveTo(-20,H);
+  for(let sx=-20;sx<=W+20;sx+=14){
+    const wx=sx+scroll;
+    const y=yBase - (Scenery.hill(wx,freq,amp,0));
+    ctx.lineTo(sx,y);
+  }
+  ctx.lineTo(W+20,H); ctx.closePath(); ctx.fill();
+}
+
+function drawTerrain(camX){
+  const step=7;
+  const tD=CONFIG.tiltDepth, tS=CONFIG.tiltSkew;
+
+  // Front (cut) dirt face: from the near contact line down to the bottom.
+  ctx.beginPath(); ctx.moveTo(-step,H+40);
+  for(let s=-step;s<=W+step;s+=step) ctx.lineTo(s,sy(Terrain.elevAt(s+camX)));
+  ctx.lineTo(W+step,H+40); ctx.closePath();
+  const g=ctx.createLinearGradient(0,baseLine-CONFIG.maxElev,0,H);
+  g.addColorStop(0,"#a06d3c"); g.addColorStop(1,"#6f4724");
+  ctx.fillStyle=g; ctx.fill();
+
+  // Top face (the rideable surface seen slightly from above): a band between
+  // the near contact line and a copy pushed up+back -> reads as 3D depth.
+  ctx.beginPath();
+  for(let s=-step;s<=W+step;s+=step){ const p=sy(Terrain.elevAt(s+camX)); s===-step?ctx.moveTo(s,p):ctx.lineTo(s,p); }
+  for(let s=W+step;s>=-step;s-=step){ const p=sy(Terrain.elevAt(s+camX))-tD; ctx.lineTo(s+tS,p); }
   ctx.closePath();
-  ctx.fillStyle = CONFIG.colDirt;
-  ctx.fill();
+  const gt=ctx.createLinearGradient(0,baseLine-CONFIG.maxElev-tD,0,baseLine-CONFIG.maxElev+40);
+  gt.addColorStop(0,"#8fd357"); gt.addColorStop(1,"#5fa838");
+  ctx.fillStyle="#6cba3f"; ctx.fill();
 
-  // Grass / top crust line for readability.
+  // Highlight on the back edge + dark line on the near edge for definition.
   ctx.beginPath();
-  for (let sx = 0; sx <= W + step; sx += step) {
-    const e = terrainElevationAt(sx + cameraX);
-    const sy = baseLine - e;
-    if (sx === 0) ctx.moveTo(sx, sy); else ctx.lineTo(sx, sy);
+  for(let s=-step;s<=W+step;s+=step){ const p=sy(Terrain.elevAt(s+camX))-tD; (s===-step?ctx.moveTo:ctx.lineTo).call(ctx,s+tS,p); }
+  ctx.lineWidth=2; ctx.strokeStyle="rgba(255,255,255,0.25)"; ctx.lineJoin="round"; ctx.stroke();
+  ctx.beginPath();
+  for(let s=-step;s<=W+step;s+=step){ const p=sy(Terrain.elevAt(s+camX)); (s===-step?ctx.moveTo:ctx.lineTo).call(ctx,s,p); }
+  ctx.lineWidth=2.5; ctx.strokeStyle="#43702a"; ctx.lineJoin="round"; ctx.stroke();
+
+  // sparse pebbles on the front face for texture & speed read
+  ctx.fillStyle="rgba(70,45,22,0.35)";
+  const start=Math.floor(camX/70)*70;
+  for(let wx=start; wx<camX+W; wx+=70){
+    const e=Terrain.elevAt(wx); const px=wx-camX;
+    ctx.fillRect(px, sy(e)+16, 8, 3);
   }
-  ctx.lineWidth = 6;
-  ctx.strokeStyle = CONFIG.colGrass;
-  ctx.stroke();
-  ctx.lineWidth = 2;
-  ctx.strokeStyle = CONFIG.colDirtTop;
-  ctx.stroke();
 }
 
-function drawBike(cameraX) {
-  const sx = worldToScreenX(bike.x, cameraX);
-  const sy = baseLine - bike.ry;
-  const r = CONFIG.wheelRadius;
-  const hw = CONFIG.wheelBase / 2;
+function drawParticles(camX){
+  for(const p of Particles.list){
+    ctx.globalAlpha=clamp(p.life/p.max,0,1);
+    ctx.fillStyle=p.col;
+    ctx.fillRect(p.wx-camX, sy(p.wy), p.size, p.size);
+  }
+  ctx.globalAlpha=1;
+}
+
+function drawBike(camX){
+  const x=riderScreenX, y=sy(player.ry);
+  const r=CONFIG.wheelRadius, hw=CONFIG.wheelBase/2;
+  const cr=player.crouch;                       // crouch (+ down, - extend)
+
+  // ground shadow (skip when high in the air)
+  const gE=Terrain.elevAt(player.x);
+  const airH=player.ry-gE;
+  if(airH<260){
+    const a=clamp(1-airH/260,0,1)*0.28;
+    ctx.fillStyle="rgba(0,0,0,"+a+")";
+    ctx.beginPath(); ctx.ellipse(x, sy(gE)+3, hw*1.1, 6, 0, 0, TAU); ctx.fill();
+  }
 
   ctx.save();
-  ctx.translate(sx, sy);
-  // Elevation-up angle: +angle means nose-up, which is CCW on screen (y-down).
-  ctx.rotate(-bike.angle * Math.PI / 180);
+  ctx.translate(x,y);
+  ctx.rotate(-player.angle*DEG);                // nose-up = CCW on screen
 
-  // Wheels (contact point sits at local origin; centres lifted by r).
-  ctx.lineWidth = 3;
-  ctx.strokeStyle = CONFIG.colWheel;
-  ctx.fillStyle = "rgba(0,0,0,0.05)";
-  for (const wx of [-hw, hw]) {
-    ctx.beginPath();
-    ctx.arc(wx, -r, r, 0, Math.PI * 2);
-    ctx.stroke();
+  // ---- wheels ----
+  ctx.lineWidth=4; ctx.strokeStyle="#15171c"; ctx.fillStyle="#222";
+  for(const wx of [-hw,hw]){
+    ctx.beginPath(); ctx.arc(wx,-r,r,0,TAU); ctx.stroke();              // tyre
+    ctx.lineWidth=1.6; ctx.strokeStyle="#cfd6dd";
+    for(let k=0;k<5;k++){ const a=wheelAngle+k*TAU/5;                   // spokes
+      ctx.beginPath(); ctx.moveTo(wx,-r);
+      ctx.lineTo(wx+Math.cos(a)*(r-3),-r+Math.sin(a)*(r-3)); ctx.stroke(); }
+    ctx.fillStyle="#9aa3ab"; ctx.beginPath(); ctx.arc(wx,-r,2.4,0,TAU); ctx.fill();
+    ctx.lineWidth=4; ctx.strokeStyle="#15171c";
   }
 
-  // Frame.
-  ctx.strokeStyle = CONFIG.colBike;
-  ctx.lineWidth = 4;
+  // ---- frame (BMX-ish) ----
+  const bb=[-2,-r+3];            // bottom bracket
+  const seat=[-14,-r-16+cr*4];   // saddle
+  const head=[hw-8,-r-12];       // head tube top
+  const bars=[hw-2,-r-20];       // handlebars
+  ctx.lineWidth=4.5; ctx.strokeStyle="#e8453a"; ctx.lineJoin="round";
   ctx.beginPath();
-  ctx.moveTo(-hw, -r);                  // rear hub
-  ctx.lineTo(0, -r - 14);              // top tube / seat area
-  ctx.lineTo(hw, -r);                  // front hub
-  ctx.moveTo(0, -r - 14);
-  ctx.lineTo(hw - 4, -r - 20);         // head tube up to bars
+  ctx.moveTo(-hw,-r); ctx.lineTo(bb[0],bb[1]);          // rear chainstay
+  ctx.lineTo(seat[0],seat[1]);                           // seat tube
+  ctx.lineTo(head[0],head[1]);                           // top tube
+  ctx.lineTo(bb[0],bb[1]);                               // down tube
+  ctx.moveTo(head[0],head[1]); ctx.lineTo(hw,-r);        // fork
+  ctx.moveTo(-hw,-r); ctx.lineTo(seat[0],seat[1]);       // seatstay
   ctx.stroke();
+  // bars + seat
+  ctx.lineWidth=4; ctx.strokeStyle="#1b1f27";
+  ctx.beginPath(); ctx.moveTo(head[0],head[1]); ctx.lineTo(bars[0],bars[1]); ctx.stroke();
+  ctx.fillStyle="#1b1f27";
+  ctx.fillRect(seat[0]-5,seat[1]-3,11,4);
 
-  // Handlebars + seat dots.
-  ctx.fillStyle = CONFIG.colBike;
-  ctx.beginPath(); ctx.arc(hw - 4, -r - 20, 3, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.arc(-2, -r - 16, 3, 0, Math.PI * 2); ctx.fill();
+  // ---- cranks/pedals ----
+  const ca=wheelAngle*1.0;
+  ctx.strokeStyle="#1b1f27"; ctx.lineWidth=3;
+  for(const s of [0,Math.PI]){
+    const pa=ca+s;
+    ctx.beginPath(); ctx.moveTo(bb[0],bb[1]);
+    ctx.lineTo(bb[0]+Math.cos(pa)*9, bb[1]+Math.sin(pa)*9); ctx.stroke();
+  }
 
-  // Rider (simple body line + head).
-  ctx.strokeStyle = CONFIG.colRider;
-  ctx.lineWidth = 5;
-  ctx.beginPath();
-  ctx.moveTo(-4, -r - 14);             // hips
-  ctx.lineTo(2, -r - 30);             // shoulders
-  ctx.lineTo(hw - 4, -r - 20);         // arms to bars
-  ctx.stroke();
-  ctx.fillStyle = CONFIG.colRider;
-  ctx.beginPath(); ctx.arc(2, -r - 36, 6, 0, Math.PI * 2); ctx.fill();
+  // ---- rider ----
+  const hip=[seat[0]+4,seat[1]-2+cr*CONFIG.crouchDepth*0.4];
+  const shldr=[hip[0]+14,hip[1]-22+cr*CONFIG.crouchDepth];
+  const headC=[shldr[0]+5,shldr[1]-11];
+  // legs (hip -> pedals)
+  ctx.lineWidth=6; ctx.strokeStyle="#2a2f3a"; ctx.lineCap="round";
+  for(const s of [0,Math.PI]){
+    const pa=ca+s, px=bb[0]+Math.cos(pa)*9, py=bb[1]+Math.sin(pa)*9;
+    const knee=[(hip[0]+px)/2+5, (hip[1]+py)/2-2];
+    ctx.beginPath(); ctx.moveTo(hip[0],hip[1]); ctx.lineTo(knee[0],knee[1]); ctx.lineTo(px,py); ctx.stroke();
+  }
+  // torso
+  ctx.lineWidth=8; ctx.strokeStyle="#ff5a3c";
+  ctx.beginPath(); ctx.moveTo(hip[0],hip[1]); ctx.lineTo(shldr[0],shldr[1]); ctx.stroke();
+  // arms (shoulder -> bars)
+  ctx.lineWidth=5; ctx.strokeStyle="#ff7a5c";
+  const elbow=[(shldr[0]+bars[0])/2, (shldr[1]+bars[1])/2+6];
+  ctx.beginPath(); ctx.moveTo(shldr[0],shldr[1]); ctx.lineTo(elbow[0],elbow[1]); ctx.lineTo(bars[0],bars[1]); ctx.stroke();
+  ctx.lineCap="butt";
+  // head + helmet
+  ctx.fillStyle="#f0c9a0"; ctx.beginPath(); ctx.arc(headC[0],headC[1],6.5,0,TAU); ctx.fill();
+  ctx.fillStyle="#2bd1c4"; ctx.beginPath();
+  ctx.arc(headC[0],headC[1],7.4,Math.PI*1.05,Math.PI*2.05); ctx.fill();
+  ctx.fillRect(headC[0]+3,headC[1]-2,6,3);   // visor
 
   ctx.restore();
 }
 
-function drawHUD() {
-  ctx.fillStyle = "rgba(16,35,56,0.85)";
-  ctx.font = "bold 22px -apple-system, system-ui, sans-serif";
-  ctx.textAlign = "left";
-  ctx.fillText("DIST  " + distanceM + " m", 16, 30);
-  ctx.fillText("SCORE " + score, 16, 58);
+/* ---- HUD ---- */
+function roundRect(x,y,w,h,r){ ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
 
-  // Pump charge meter (left edge), gives feedback while holding.
-  const meterH = 90, meterW = 8, mx = 16, my = 78;
-  ctx.fillStyle = "rgba(255,255,255,0.35)";
-  ctx.fillRect(mx, my, meterW, meterH);
-  const frac = bike.pumpCharge / CONFIG.maxPumpCharge;
-  ctx.fillStyle = "#ffd24a";
-  ctx.fillRect(mx, my + meterH * (1 - frac), meterW, meterH * frac);
+function drawHUD(){
+  // panel
+  ctx.fillStyle="rgba(17,36,58,0.55)"; roundRect(12,12,190,66,12); ctx.fill();
+  ctx.fillStyle="#fff"; ctx.textAlign="left";
+  ctx.font="bold 26px -apple-system,system-ui,sans-serif";
+  ctx.fillText(score.toString(), 24, 44);
+  ctx.font="bold 12px -apple-system,system-ui,sans-serif"; ctx.fillStyle="rgba(255,255,255,.7)";
+  ctx.fillText("SCORE", 24, 58);
+  ctx.textAlign="right"; ctx.fillStyle="#fff"; ctx.font="bold 18px -apple-system,system-ui,sans-serif";
+  ctx.fillText(distanceM+" m", 190, 40);
+  ctx.font="bold 11px -apple-system,system-ui,sans-serif"; ctx.fillStyle="rgba(255,255,255,.7)";
+  ctx.fillText("BEST "+best, 190, 58); ctx.fillText("DIST", 190, 70);
 
-  // Airborne rotation readout.
-  if (!bike.onGround) {
-    ctx.textAlign = "center";
-    ctx.fillStyle = "rgba(16,35,56,0.9)";
-    ctx.font = "bold 30px -apple-system, system-ui, sans-serif";
-    ctx.fillText(Math.round(bike.totalRotation) + "°", W / 2, 44);
+  // pump charge bar (bottom-left)
+  const bw=150,bh=12,bx=18,by=H-32;
+  ctx.fillStyle="rgba(17,36,58,0.5)"; roundRect(bx-4,by-4,bw+8,bh+8,8); ctx.fill();
+  ctx.fillStyle="rgba(255,255,255,.18)"; roundRect(bx,by,bw,bh,6); ctx.fill();
+  const frac=player?player.pumpCharge/CONFIG.maxPumpCharge:0;
+  ctx.fillStyle = frac>0.85?"#7CFC9A":"#ffd24a";
+  roundRect(bx,by,bw*frac,bh,6); ctx.fill();
+  ctx.fillStyle="rgba(255,255,255,.85)"; ctx.textAlign="left";
+  ctx.font="bold 11px -apple-system,system-ui,sans-serif"; ctx.fillText("PUMP", bx, by-8);
+
+  // combo
+  if(combo>1){ ctx.textAlign="right"; ctx.fillStyle="#ffd24a";
+    ctx.font="bold 22px -apple-system,system-ui,sans-serif";
+    ctx.fillText("COMBO x"+(1+(combo-1)*CONFIG.comboStep).toFixed(1), W-16, H-22); }
+
+  // live rotation readout while airborne
+  if(player && !player.onGround){
+    ctx.textAlign="center"; ctx.fillStyle="rgba(255,255,255,.95)";
+    ctx.font="bold 30px -apple-system,system-ui,sans-serif";
+    ctx.fillText(Math.round(Math.abs(player.totalRotation))+"°", W/2, 48);
   }
 
-  // Flip-landed flash.
-  if (flipFlash.t > 0) {
-    ctx.textAlign = "center";
-    ctx.globalAlpha = clamp(flipFlash.t, 0, 1);
-    ctx.fillStyle = "#ffd24a";
-    ctx.strokeStyle = "rgba(16,35,56,0.9)";
-    ctx.lineWidth = 4;
-    ctx.font = "bold 40px -apple-system, system-ui, sans-serif";
-    const label = flipFlash.flips === 1 ? "FLIP! +" + CONFIG.pointsPerFlip
-                                        : flipFlash.flips + "x FLIP! +" + (flipFlash.flips * CONFIG.pointsPerFlip);
-    ctx.strokeText(label, W / 2, H * 0.3);
-    ctx.fillText(label, W / 2, H * 0.3);
-    ctx.globalAlpha = 1;
-  }
+  // floating score popups (world-anchored)
+  const camX=player?player.x-riderScreenX:0;
+  for(const p of popups){ ctx.globalAlpha=clamp(p.t,0,1); ctx.textAlign="center";
+    ctx.fillStyle=p.col; ctx.font="bold 22px -apple-system,system-ui,sans-serif";
+    ctx.fillText(p.txt, p.wx-camX, sy(p.wy)); }
+  ctx.globalAlpha=1;
+
+  // trick banner
+  if(flipFlash.t>0){ ctx.textAlign="center"; ctx.globalAlpha=clamp(flipFlash.t/0.4,0,1);
+    ctx.font="900 38px -apple-system,system-ui,sans-serif";
+    ctx.lineWidth=5; ctx.strokeStyle="rgba(17,36,58,.9)";
+    ctx.strokeText(flipFlash.txt, W/2, H*0.28);
+    ctx.fillStyle=flipFlash.col; ctx.fillText(flipFlash.txt, W/2, H*0.28);
+    ctx.globalAlpha=1; }
 }
 
 /* ============================================================================
  *  MAIN LOOP
  * ==========================================================================*/
-let lastT = 0;
-function frame(now) {
-  if (!lastT) lastT = now;
-  let dt = (now - lastT) / 1000;
-  lastT = now;
-  if (dt > CONFIG.maxDt) dt = CONFIG.maxDt;   // clamp against lag spikes
-
+let lastT=0, camY=0;
+function frame(now){
+  if(!lastT) lastT=now;
+  let dt=(now-lastT)/1000; lastT=now;
+  if(dt>CONFIG.maxDt) dt=CONFIG.maxDt;
   update(dt);
-  if (state !== "start") render();            // start screen draws nothing yet
-
+  if(state!=="start") render();
   requestAnimationFrame(frame);
 }
+document.addEventListener("visibilitychange",()=>{ if(!document.hidden) lastT=0; });
 requestAnimationFrame(frame);
 
 /* ============================================================================
- *  START / PERMISSION / RESTART
+ *  STATE / START / PERMISSION / RESTART
  * ==========================================================================*/
-const startScreen = document.getElementById("startScreen");
-const gameOver = document.getElementById("gameOver");
-const hintEl = document.getElementById("hint");
+let state="start";
+const startScreen=document.getElementById("startScreen");
+const gameOver=document.getElementById("gameOver");
+const muteBtn=document.getElementById("muteBtn");
 
-function beginPlay() {
-  resetGame();
-  state = "play";
-  startScreen.style.display = "none";
-  gameOver.style.display = "none";
-  hintEl.textContent = orientationActive
-    ? "Hold to pump · release at the lip · tilt to flip"
-    : "Hold to pump · release at the lip · drag up/down to flip";
+loadBest();
+
+function beginPlay(){
+  resetGame(); state="play";
+  startScreen.style.display="none"; gameOver.style.display="none";
+  muteBtn.style.display="block";
 }
-
-async function requestMotionThenStart() {
-  // iOS 13+ requires an explicit permission request from a user gesture.
-  try {
-    if (typeof DeviceOrientationEvent !== "undefined" &&
-        typeof DeviceOrientationEvent.requestPermission === "function") {
-      const res = await DeviceOrientationEvent.requestPermission();
-      if (res === "granted") {
-        window.addEventListener("deviceorientation", onDeviceOrientation);
-      }
-    } else if (typeof DeviceOrientationEvent !== "undefined") {
-      // Non-iOS: just listen. orientationActive flips true on first real reading.
-      window.addEventListener("deviceorientation", onDeviceOrientation);
+async function requestMotionThenStart(){
+  Sound.init(); if(Sound.ac&&Sound.ac.state==="suspended") Sound.ac.resume();
+  try{
+    if(typeof DeviceOrientationEvent!=="undefined" && typeof DeviceOrientationEvent.requestPermission==="function"){
+      const res=await DeviceOrientationEvent.requestPermission();
+      if(res==="granted") window.addEventListener("deviceorientation",onOrient);
+    } else if(typeof DeviceOrientationEvent!=="undefined"){
+      window.addEventListener("deviceorientation",onOrient);
     }
-  } catch (err) {
-    // Permission denied or unsupported -> drag fallback stays available.
-  }
+  }catch(e){ /* fall back to drag */ }
   beginPlay();
 }
-
-document.getElementById("startBtn").addEventListener("click", requestMotionThenStart);
-document.getElementById("restartBtn").addEventListener("click", beginPlay);
+document.getElementById("startBtn").addEventListener("click",requestMotionThenStart);
+document.getElementById("restartBtn").addEventListener("click",beginPlay);
+muteBtn.addEventListener("click",()=>{ Sound.muted=!Sound.muted; muteBtn.textContent=Sound.muted?"🔇":"🔊"; });
 </script>
 </body>
 </html>
