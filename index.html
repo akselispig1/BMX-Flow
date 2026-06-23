@@ -51,6 +51,17 @@
   .btn { margin-top:18px; padding:17px 50px; font-size:5.4vw; font-weight:800; color:var(--ink);
     background:var(--gold); border:none; border-radius:16px; box-shadow:0 6px 0 #c79a14; letter-spacing:1px; }
   .btn:active { transform:translateY(3px); box-shadow:0 3px 0 #c79a14; }
+  #mp { margin-top:14px; display:flex; flex-direction:column; align-items:center; gap:10px; }
+  #mp .mprow { display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:center; }
+  .mbtn { padding:12px 22px; font-size:3.8vw; font-weight:800; border:none; border-radius:12px;
+          background:#2bd1c4; color:#0c2a2f; box-shadow:0 4px 0 #1d9c93; letter-spacing:1px; }
+  .mbtn:active { transform:translateY(2px); box-shadow:0 2px 0 #1d9c93; }
+  #codeIn { width:106px; padding:11px; font-size:4.4vw; font-weight:800; text-align:center; text-transform:uppercase;
+            border:none; border-radius:12px; background:rgba(255,255,255,.92); color:#11243a; letter-spacing:3px; }
+  #mpStatus { font-size:3.2vw; opacity:.92; min-height:1.2em; max-width:90vw; }
+  #gap { position:absolute; top:12px; right:12px; background:rgba(17,36,58,.5); border-radius:13px;
+         padding:8px 14px; font-weight:800; text-align:right; display:none; line-height:1.1; }
+  @media (min-width:760px){ .mbtn{font-size:17px} #codeIn{font-size:20px;width:130px} #mpStatus{font-size:14px} }
   #muteBtn { position:fixed; top:10px; right:10px; z-index:9; width:42px; height:42px; border:none;
     border-radius:11px; background:rgba(17,36,58,.55); color:#fff; font-size:20px; display:none; }
   @media (min-width:760px){
@@ -68,6 +79,7 @@
   <div class="panel"><div id="score">0</div><div id="sub">SCORE · 0 m · BEST 0</div></div>
   <div id="rot">0°</div>
   <div id="combo"></div>
+  <div id="gap"></div>
   <div id="pumpWrap"><div id="pumpLbl">PUMP</div><div id="pumpBar"><div id="pumpFill"></div></div></div>
   <div id="banner"></div>
 </div>
@@ -80,7 +92,16 @@
     <div class="key"><b>RELEASE</b>boost off lip</div>
     <div class="key"><b>TILT</b>flip in air</div>
   </div>
-  <button id="startBtn" class="btn">TAP TO START</button>
+  <button id="startBtn" class="btn">TAP TO START (SOLO)</button>
+  <div id="mp">
+    <div class="mprow">
+      <button id="hostBtn" class="mbtn">CREATE ROOM</button>
+      <span style="opacity:.6">or</span>
+      <input id="codeIn" placeholder="CODE" maxlength="5" autocapitalize="characters" autocomplete="off" />
+      <button id="joinBtn" class="mbtn">JOIN</button>
+    </div>
+    <div id="mpStatus">Play solo, or race a friend online — same track, share the code.</div>
+  </div>
   <p style="opacity:.6">No motion sensor? Drag up/down to flip. Landscape recommended.</p>
 </div>
 
@@ -345,6 +366,9 @@ function updateHUD(){
   const cm=document.getElementById("combo");
   if(combo>1){ cm.style.display="block"; cm.textContent="COMBO x"+(1+(combo-1)*CONFIG.comboStep).toFixed(1); } else cm.style.display="none";
   banner.style.opacity = bannerT>0 ? clamp(bannerT/0.4,0,1) : 0;
+  if(Net.active){ const gp=document.getElementById("gap"); const d=Net.remoteMeta.dist-distanceM;
+    gp.innerHTML="<span style='font-size:13px;opacity:.8'>RIVAL</span><br>"+Net.remoteMeta.dist+" m<br>"+
+      "<span style='font-size:12px;color:"+(d>=0?"#ff8a6a":"#7CFC9A")+"'>"+(d>=0?"+"+d:d)+" m</span>"; }
 }
 
 /* ============================================================================
@@ -374,7 +398,7 @@ const Scene={
     sun.shadow.bias=-0.0004;
     this.sun=sun; this.scene.add(sun); this.scene.add(sun.target);
 
-    this.buildTerrain(); this.buildBike(); this.buildTrees(); this.buildMountains(); this.buildDust();
+    this.buildTerrain(); this.buildBike(); this.buildOpponent(); this.buildTrees(); this.buildMountains(); this.buildDust();
     window.addEventListener("resize",()=>this.resize());
   },
   resize(){ const w=window.innerWidth,h=window.innerHeight;
@@ -487,6 +511,54 @@ const Scene={
     this.riderGroup.position.y=-player.crouch*CONFIG.crouchDrop;
   },
 
+  // ---- Multiplayer opponent (a blue "rival" bike driven by network state) ----
+  buildOpponent(){
+    const g=new THREE.Group(); g.visible=false;
+    const R=CONFIG.wheelRadius, HW=CONFIG.wheelBase/2;
+    const tireMat=new THREE.MeshLambertMaterial({color:0x16161a});
+    const frameMat=new THREE.MeshLambertMaterial({color:0x3a7bd5});
+    const darkMat=new THREE.MeshLambertMaterial({color:0x232831});
+    const jerseyMat=new THREE.MeshLambertMaterial({color:0x2b6fff});
+    const skinMat=new THREE.MeshLambertMaterial({color:0xf0c9a0});
+    const helmMat=new THREE.MeshLambertMaterial({color:0xffd24a});
+    const V=(x,y,z)=>new THREE.Vector3(x,y,z||0);
+    this.oppWheels=[];
+    for(const wx of [-HW,HW]){
+      const w=new THREE.Group();
+      const tire=new THREE.Mesh(new THREE.TorusGeometry(R,0.085,8,18),tireMat); tire.castShadow=true;
+      for(let k=0;k<4;k++){ const sp=new THREE.Mesh(new THREE.BoxGeometry(0.015,(R-0.06)*2,0.015),darkMat); sp.rotation.z=k*Math.PI/4; w.add(sp); }
+      w.add(tire); w.position.set(wx,R,0); g.add(w); this.oppWheels.push(w);
+    }
+    const rearHub=V(-HW,R),frontHub=V(HW,R),bb=V(0,R-0.06),seat=V(-0.4,R+0.55),head=V(0.5,R+0.4),bars=V(0.6,R+0.62);
+    g.add(this.tube(rearHub,bb,0.04,frameMat),this.tube(bb,seat,0.04,frameMat),this.tube(seat,head,0.04,frameMat),
+          this.tube(head,bb,0.04,frameMat),this.tube(head,frontHub,0.035,darkMat),this.tube(rearHub,seat,0.035,frameMat),
+          this.tube(head,bars,0.03,darkMat));
+    const hips=V(-0.18,R+0.62),chest=V(0.12,R+1.12),neck=V(0.2,R+1.32),headC=V(0.3,R+1.5);
+    g.add(this.tube(hips,chest,0.11,jerseyMat),this.tube(chest,neck,0.05,skinMat));
+    for(const dz of [0.13,-0.13]){
+      g.add(this.tube(V(chest.x,chest.y,dz),V((chest.x+bars.x)/2,(chest.y+bars.y)/2+0.08,dz),0.045,jerseyMat));
+      g.add(this.tube(V((chest.x+bars.x)/2,(chest.y+bars.y)/2+0.08,dz),V(bars.x,bars.y,dz),0.04,skinMat));
+    }
+    for(const dz of [0.12,-0.12]){ const foot=V(0,R-0.02,dz),knee=V(-0.05,R+0.32,dz);
+      g.add(this.tube(V(hips.x,hips.y,dz),knee,0.06,darkMat),this.tube(knee,foot,0.05,darkMat)); }
+    const h3=new THREE.Mesh(new THREE.SphereGeometry(0.16,12,10),helmMat); h3.position.copy(headC); h3.castShadow=true; g.add(h3);
+    g.traverse(o=>{ if(o.isMesh)o.castShadow=true; });
+    this.opponent=g; this.oppState={x:0,ry:0,angle:0,spin:0,init:false}; this.scene.add(g);
+  },
+  showOpponent(v){ if(this.opponent)this.opponent.visible=v;
+    const gp=document.getElementById("gap"); if(gp)gp.style.display=v?"block":"none"; },
+  updateOpponent(dt){
+    if(!this.opponent||!Net.remote)return;
+    const st=this.oppState, r=Net.remote;
+    if(!st.init){ st.x=r.x; st.ry=r.ry; st.angle=r.angle; st.init=true; }
+    const k=1-Math.exp(-10*dt), px=st.x;
+    st.x=lerp(st.x,r.x,k); st.ry=lerp(st.ry,r.ry,k); st.angle+=angleDelta(r.angle,st.angle)*k;
+    st.spin -= (st.x-px)/CONFIG.wheelRadius;
+    this.opponent.position.set(st.x, st.ry, 0);
+    this.opponent.rotation.z=st.angle*DEG;
+    for(const w of this.oppWheels) w.rotation.z=st.spin;
+  },
+
   buildTrees(){
     const trunkMat=new THREE.MeshLambertMaterial({color:0x5b3b22});
     const leafMat=new THREE.MeshLambertMaterial({color:0x357a32});
@@ -546,6 +618,7 @@ const Scene={
 
   sync(dt){
     this.updateTerrain(); this.updateBike(); this.updateTrees(); this.updateDust(dt);
+    if(Net.active) this.updateOpponent(dt);
     if(this.mountains) this.mountains.position.x=player.x;
     // camera
     camY=lerp(camY, player.ry*0.5, 1-Math.exp(-CONFIG.camLerp*dt));
@@ -566,6 +639,7 @@ function frame(now){
   requestAnimationFrame(frame);
   if(!lastT)lastT=now; let dt=(now-lastT)/1000; lastT=now; if(dt>1/30)dt=1/30;
   update(dt);
+  if(Net.active && now-Net.lastSend>50){ Net.lastSend=now; Net.send(); }
   Scene.sync(dt);
   updateHUD();
 }
@@ -589,20 +663,59 @@ function fail(msg){
   if(msg) document.getElementById("errMsg").textContent="3D failed to start: "+msg+" — check your connection and reload.";
 }
 function beginPlay(){ resetGame(); state="play"; startScreen.style.display="none"; gameOver.style.display="none"; muteBtn.style.display="block"; }
-async function startTapped(){
+async function ensureMotion(){
   Sound.init(); if(Sound.ac&&Sound.ac.state==="suspended")Sound.ac.resume();
   try{
     if(typeof DeviceOrientationEvent!=="undefined" && typeof DeviceOrientationEvent.requestPermission==="function"){
       const res=await DeviceOrientationEvent.requestPermission(); if(res==="granted")window.addEventListener("deviceorientation",onOrient);
     } else if(typeof DeviceOrientationEvent!=="undefined"){ window.addEventListener("deviceorientation",onOrient); }
   }catch(e){}
-  beginPlay();
 }
+async function startTapped(){ await ensureMotion(); beginPlay(); }
+
+/* ----- Multiplayer add-on: online race via WebRTC (PeerJS free broker) -----
+ * Both riders share the same deterministic track, run physics locally, and
+ * stream position to each other; the opponent shows as a blue rival bike.   */
+function setStatus(m){ const e=document.getElementById("mpStatus"); if(e)e.textContent=m; }
+function startMatch(){ if(state==="play")return; beginPlay(); Scene.showOpponent(true); setStatus("Racing!"); }
+const Net={
+  peer:null, conn:null, active:false, remote:null, remoteMeta:{dist:0,score:0}, lastSend:0, prefix:"bmxflowx-",
+  newCode(){ const A="ACDEFGHJKLMNPQRSTUVWXYZ23456789"; let s=""; for(let i=0;i<4;i++)s+=A[Math.floor(Math.random()*A.length)]; return s; },
+  host(){
+    if(typeof Peer==="undefined"){ setStatus("Multiplayer engine didn't load — check connection & reload."); return; }
+    const code=this.newCode(); setStatus("Creating room…");
+    this.peer=new Peer(this.prefix+code,{debug:1});
+    this.peer.on("open",()=>setStatus("Room code:  "+code+"   — give it to your friend, waiting…"));
+    this.peer.on("error",e=>setStatus("Error ("+e.type+") — tap Create Room again."));
+    this.peer.on("connection",c=>{ this.conn=c; this.setup(true); });
+  },
+  join(code){
+    if(typeof Peer==="undefined"){ setStatus("Multiplayer engine didn't load — check connection & reload."); return; }
+    code=(code||"").trim().toUpperCase(); if(code.length<3){ setStatus("Enter the room code first."); return; }
+    setStatus("Joining "+code+"…");
+    this.peer=new Peer({debug:1});
+    this.peer.on("open",()=>{ this.conn=this.peer.connect(this.prefix+code); this.setup(false); });
+    this.peer.on("error",e=>setStatus("Error ("+e.type+") — check the code & try again."));
+  },
+  setup(isHost){
+    const c=this.conn; if(!c)return;
+    c.on("open",()=>{ this.active=true; if(isHost){ c.send({t:"begin"}); startMatch(); } });
+    c.on("data",d=>{ if(!d)return;
+      if(d.t==="begin"){ startMatch(); }
+      else if(d.t==="s"){ this.remote=d; this.remoteMeta.dist=d.dist; this.remoteMeta.score=d.score; } });
+    c.on("close",()=>{ setStatus("Opponent disconnected."); this.active=false; });
+  },
+  send(){ if(this.active&&this.conn&&this.conn.open){ try{
+    this.conn.send({t:"s",x:player.x,ry:player.ry,angle:player.angle,dist:distanceM,score:score,og:player.onGround}); }catch(e){} } },
+};
 document.getElementById("startBtn").addEventListener("click",startTapped);
 document.getElementById("restartBtn").addEventListener("click",beginPlay);
+document.getElementById("hostBtn").addEventListener("click",async()=>{ await ensureMotion(); Net.host(); });
+document.getElementById("joinBtn").addEventListener("click",async()=>{ await ensureMotion(); Net.join(document.getElementById("codeIn").value); });
 muteBtn.addEventListener("click",()=>{ Sound.muted=!Sound.muted; muteBtn.textContent=Sound.muted?"🔇":"🔊"; });
 </script>
 <button id="muteBtn" aria-label="Toggle sound">🔊</button>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script src="https://unpkg.com/three@0.149.0/build/three.min.js" onload="boot()" onerror="fail('could not download Three.js')"></script>
 </body>
 </html>
